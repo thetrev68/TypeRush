@@ -199,15 +199,41 @@ body {
   width: min(320px, 90vw);
   text-align: center;
   box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .overlay-card h2 {
-  margin: 0 0 8px;
+  margin: 0;
 }
 
 .overlay-card p {
-  margin: 0 0 14px;
+  margin: 0;
   color: var(--muted);
+}
+
+.lesson-control {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 10px 0;
+  width: 100%;
+}
+
+.lesson-select {
+  padding: 12px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--text);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 1rem;
+}
+
+.lesson-info {
+  font-size: 0.85rem;
+  color: var(--accent-2);
+  min-height: 1.2em;
 }
 
 .controls {

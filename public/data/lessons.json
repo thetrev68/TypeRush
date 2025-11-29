@@ -1,0 +1,48 @@
+[
+  {
+    "id": "left-hand",
+    "title": "Left Hand Practice",
+    "description": "Words typed only with your left thumb.",
+    "config": {
+      "allowedSet": "left"
+    }
+  },
+  {
+    "id": "right-hand",
+    "title": "Right Hand Practice",
+    "description": "Words typed only with your right thumb.",
+    "config": {
+      "allowedSet": "right"
+    }
+  },
+  {
+    "id": "alternating",
+    "title": "Alternating Thumbs",
+    "description": "Words that alternate between thumbs.",
+    "config": {
+      "enforceAlternate": true
+    }
+  },
+  {
+    "id": "mixed-short",
+    "title": "Mixed Short Words",
+    "description": "A mix of short words from both thumbs.",
+    "config": {
+      "maxLength": 4
+    }
+  },
+  {
+    "id": "mixed-fast",
+    "title": "Mixed Fast",
+    "description": "Full word set, faster pace.",
+    "config": {
+      "level": 2
+    }
+  },
+  {
+    "id": "full-set",
+    "title": "Full Set Challenge",
+    "description": "The complete word list.",
+    "config": {}
+  }
+]

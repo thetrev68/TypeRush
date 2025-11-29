@@ -39,7 +39,11 @@ const template = `
         <div class="overlay-card">
           <h2 id="overlayTitle">Ready?</h2>
           <p id="overlayMsg">Tap start to play.</p>
-          <button id="overlayRestart">Play again</button>
+          <div class="lesson-control">
+            <select id="lessonPicker" class="lesson-select"></select>
+            <div id="lessonInfo" class="lesson-info"></div>
+          </div>
+          <button id="overlayRestart">Play</button>
         </div>
       </div>
     </section>
@@ -64,6 +68,8 @@ const overlay = document.getElementById('overlay');
 const overlayTitle = document.getElementById('overlayTitle');
 const overlayMsg = document.getElementById('overlayMsg');
 const overlayRestart = document.getElementById('overlayRestart');
+const lessonPicker = document.getElementById('lessonPicker');
+const lessonInfo = document.getElementById('lessonInfo');
 const scoreVal = document.getElementById('scoreVal');
 const livesVal = document.getElementById('livesVal');
 const speedVal = document.getElementById('speedVal');
@@ -76,6 +82,7 @@ const MIN_FALL = 5000;
 const MIN_SPAWN = 1400;
 
 const leftLetters = new Set(['q', 'w', 'e', 'r', 't', 'a', 's', 'd', 'f', 'g', 'z', 'x', 'c', 'v', 'b']);
+const rightLetters = new Set(['y', 'u', 'i', 'o', 'p', 'h', 'j', 'k', 'l', 'n', 'm']);
 let currentThumbSide = null;
 
 const getExpectedThumb = (word) => {
@@ -92,6 +99,10 @@ const inferThumbFromChar = (char) => {
 
 const state = {
   words: [],
+  lessons: [],
+  activeWords: [],
+  unlockedLessons: JSON.parse(localStorage.getItem('tr_unlocked')) || [0],
+  currentLessonIndex: 0,
   running: false,
   score: 0,
   lives: 5,
@@ -101,6 +112,11 @@ const state = {
   falling: [],
   correctThumbs: 0,
   totalThumbs: 0,
+  recentWords: [], // for WPM calc
+};
+
+const saveProgress = () => {
+  localStorage.setItem('tr_unlocked', JSON.stringify(state.unlockedLessons));
 };
 
 const focusInput = () => {
@@ -117,24 +133,63 @@ document.addEventListener('touchstart', (e) => {
   currentThumbSide = x < window.innerWidth / 2 ? 'left' : 'right';
 }, { passive: true });
 
-const loadWords = async () => {
-  if (state.words.length) return state.words;
-  try {
-    const res = await fetch('/data/words.json');
-    const data = await res.json();
-    state.words = data.filter(Boolean);
-  } catch (err) {
-    console.error('Failed to load words, using fallback', err);
-    state.words = ['fast', 'thumb', 'type', 'speed', 'focus', 'quick', 'learn', 'tap', 'flow'];
-  }
-  return state.words;
+const filterWordsForLesson = (lesson) => {
+  const cfg = lesson.config;
+  return state.words.filter(w => {
+    const chars = w.split('');
+    if (cfg.allowedSet === 'left') {
+      return chars.every(c => leftLetters.has(c));
+    }
+    if (cfg.allowedSet === 'right') {
+      return chars.every(c => rightLetters.has(c));
+    }
+    if (cfg.maxLength && w.length > cfg.maxLength) return false;
+    return true;
+  });
 };
+
+const loadData = async () => {
+  try {
+    const [wRes, lRes] = await Promise.all([
+      fetch('/data/words.json'),
+      fetch('/data/lessons.json')
+    ]);
+    state.words = (await wRes.json()).filter(Boolean);
+    state.lessons = await lRes.json();
+    renderLessonPicker();
+  } catch (err) {
+    console.error('Failed to load data', err);
+  }
+};
+
+const renderLessonPicker = () => {
+  lessonPicker.innerHTML = state.lessons.map((l, i) => {
+    const locked = !state.unlockedLessons.includes(i);
+    const prefix = locked ? '🔒 ' : '';
+    return `<option value="${i}" ${locked ? 'disabled' : ''}>${prefix}${l.title}</option>`;
+  }).join('');
+  lessonPicker.value = state.currentLessonIndex;
+  updateLessonInfo();
+};
+
+const updateLessonInfo = () => {
+  const idx = parseInt(lessonPicker.value);
+  state.currentLessonIndex = idx;
+  const lesson = state.lessons[idx];
+  if (lesson) {
+    lessonInfo.textContent = lesson.description;
+  }
+};
+
+lessonPicker.addEventListener('change', updateLessonInfo);
 
 const updateHUD = () => {
   scoreVal.textContent = state.score.toString();
   livesVal.textContent = `${state.lives}`;
   speedVal.textContent = `Lv ${state.level}`;
-  accuracyVal.textContent = state.totalThumbs ? `${Math.round((state.correctThumbs / state.totalThumbs) * 100)}%` : '100%';
+  
+  const acc = state.totalThumbs ? Math.round((state.correctThumbs / state.totalThumbs) * 100) : 100;
+  accuracyVal.textContent = `${acc}%`;
 };
 
 const clearFalling = () => {
@@ -165,13 +220,48 @@ const popWord = (entry) => {
   setTimeout(() => entry.el.remove(), 120);
   state.falling.splice(idx, 1);
   state.score += Math.max(5, entry.word.length);
+  
+  // WPM Tracking
+  const now = Date.now();
+  state.recentWords.push({ time: now, chars: entry.word.length });
+  // Keep only last 10 words
+  if (state.recentWords.length > 10) state.recentWords.shift();
+  
   updateHUD();
 };
 
+const calculateWPM = () => {
+  if (state.recentWords.length < 2) return 0;
+  const first = state.recentWords[0].time;
+  const last = state.recentWords[state.recentWords.length - 1].time;
+  const diffMin = (last - first) / 60000;
+  if (diffMin <= 0) return 0;
+  
+  const totalChars = state.recentWords.reduce((sum, item) => sum + item.chars, 0);
+  const words = totalChars / 5; // standard avg word length
+  return Math.round(words / diffMin);
+};
+
 const spawnWord = () => {
-  if (!state.running || !state.words.length) return;
+  if (!state.running || !state.activeWords.length) return;
   if (state.falling.length >= 2) return;
-  const word = state.words[Math.floor(Math.random() * state.words.length)];
+  
+  let word = state.activeWords[Math.floor(Math.random() * state.activeWords.length)];
+  
+  // Enforce alternation if required
+  const lesson = state.lessons[state.currentLessonIndex];
+  if (lesson?.config?.enforceAlternate && state.falling.length > 0) {
+     const lastWord = state.falling[state.falling.length - 1].word;
+     const lastThumb = getExpectedThumb(lastWord);
+     const nextThumb = lastThumb === 'left' ? 'right' : 'left';
+     
+     // Try to find a word for the other thumb (simple retry logic)
+     for (let i = 0; i < 10; i++) {
+       if (getExpectedThumb(word) === nextThumb) break;
+       word = state.activeWords[Math.floor(Math.random() * state.activeWords.length)];
+     }
+  }
+
   const el = document.createElement('div');
   el.className = 'word';
   el.textContent = word;
@@ -195,16 +285,36 @@ const levelUp = () => {
   restartSpawnTimer();
 };
 
+const checkUnlock = () => {
+  const acc = state.totalThumbs ? (state.correctThumbs / state.totalThumbs) * 100 : 100;
+  const wpm = calculateWPM();
+  const nextIdx = state.currentLessonIndex + 1;
+  
+  if (acc >= 95 && wpm >= 30 && nextIdx < state.lessons.length) {
+    if (!state.unlockedLessons.includes(nextIdx)) {
+      state.unlockedLessons.push(nextIdx);
+      saveProgress();
+      renderLessonPicker();
+      return `Next lesson unlocked! (WPM: ${wpm}, Acc: ${Math.round(acc)}%)`;
+    }
+  }
+  return null;
+};
+
 const endGame = (reason = 'Game over') => {
   state.running = false;
   clearInterval(state.spawnTimer);
   clearInterval(state.rampTimer);
   clearFalling();
-  overlayTitle.textContent = 'Game Over';
-  overlayMsg.textContent = reason;
+  
+  const unlockMsg = checkUnlock();
+  overlayTitle.textContent = unlockMsg ? 'Success!' : 'Game Over';
+  overlayMsg.textContent = unlockMsg || reason;
+  
   overlay.classList.remove('hidden');
   startBtn.disabled = false;
   restartBtn.disabled = false;
+  lessonPicker.disabled = false;
 };
 
 const resetGame = () => {
@@ -213,6 +323,7 @@ const resetGame = () => {
   state.level = 1;
   state.correctThumbs = 0;
   state.totalThumbs = 0;
+  state.recentWords = [];
   clearInterval(state.spawnTimer);
   clearInterval(state.rampTimer);
   clearFalling();
@@ -220,19 +331,31 @@ const resetGame = () => {
   overlayTitle.textContent = 'Ready?';
   overlayMsg.textContent = 'Tap start to play.';
   overlay.classList.remove('hidden');
+  lessonPicker.disabled = false;
 };
 
 const startGame = async () => {
-  await loadWords();
+  const idx = parseInt(lessonPicker.value);
+  state.currentLessonIndex = idx;
+  state.activeWords = filterWordsForLesson(state.lessons[idx]);
+  
+  if (state.activeWords.length === 0) {
+    alert("No words found for this lesson configuration!");
+    return;
+  }
+
   state.running = true;
   state.score = 0;
   state.lives = 5;
-  state.level = 1;
+  state.level = state.lessons[idx].config.level || 1;
   state.correctThumbs = 0;
   state.totalThumbs = 0;
+  state.recentWords = [];
   clearFalling();
   updateHUD();
   overlay.classList.add('hidden');
+  lessonPicker.disabled = true;
+  
   hiddenInput.value = '';
   focusInput();
   spawnWord();
@@ -287,11 +410,15 @@ restartBtn.addEventListener('click', () => {
 });
 
 overlayRestart.addEventListener('click', () => {
-  resetGame();
-  startGame();
+  if (!state.running) {
+    startGame();
+  } else {
+    resetGame();
+    startGame();
+  }
 });
 
-resetGame();
+loadData();
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
