@@ -208,7 +208,11 @@ const saveProgress = () => {
   localStorage.setItem('tr_unlocked', JSON.stringify(state.unlockedLessons));
 };
 
-const focusInput = () => {
+const focusInput = (e) => {
+  // Don't steal focus from select elements
+  if (e.target && (e.target.tagName === 'SELECT' || e.target.closest('.lesson-select'))) {
+    return;
+  }
   hiddenInput.focus({ preventScroll: true });
   hiddenInput.setSelectionRange(hiddenInput.value.length, hiddenInput.value.length);
 };
@@ -239,6 +243,7 @@ const applyTheme = (key) => {
 };
 
 const renderThemePicker = () => {
+  console.log('Rendering theme picker with themes:', Object.keys(themes));
   themePicker.innerHTML = Object.entries(themes)
     .map(([k, v]) => `<option value="${k}" ${k === currentTheme ? 'selected' : ''}>${v.name}</option>`)
     .join('');
@@ -283,6 +288,7 @@ const loadData = async () => {
 };
 
 const renderLessonPicker = () => {
+  console.log('Rendering lesson picker with', state.lessons.length, 'lessons');
   lessonPicker.innerHTML = state.lessons
     .map((l, i) => {
       const locked = !state.unlockedLessons.includes(i);
@@ -311,8 +317,24 @@ const updateLessonInfo = () => {
   }
 };
 
-lessonPicker.addEventListener('change', updateLessonInfo);
-themePicker.addEventListener('change', (e) => applyTheme(e.target.value));
+lessonPicker.addEventListener('change', (e) => {
+  console.log('Lesson picker changed to:', e.target.value);
+  updateLessonInfo();
+});
+
+themePicker.addEventListener('change', (e) => {
+  console.log('Theme picker changed to:', e.target.value);
+  applyTheme(e.target.value);
+});
+
+// Add touch support for mobile
+lessonPicker.addEventListener('touchstart', (e) => {
+  e.stopPropagation();
+}, { passive: true });
+
+themePicker.addEventListener('touchstart', (e) => {
+  e.stopPropagation();
+}, { passive: true });
 
 const calculateWPM = () => {
   if (state.recentWords.length < 2) return 0;
