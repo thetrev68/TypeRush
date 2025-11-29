@@ -182,6 +182,7 @@ const state = {
   level: 1,
   spawnTimer: null,
   rampTimer: null,
+  positionTimer: null,
   falling: [],
   correctThumbs: 0,
   totalThumbs: 0,
@@ -191,6 +192,17 @@ const state = {
   dailyMode: false,
   rng: Math.random,
 };
+
+const defaultLessons = [
+  { id: 'left-hand', title: 'Left Hand Practice', description: 'Words typed only with your left thumb.', config: { allowedSet: 'left' } },
+  { id: 'right-hand', title: 'Right Hand Practice', description: 'Words typed only with your right thumb.', config: { allowedSet: 'right' } },
+  { id: 'alternating', title: 'Alternating Thumbs', description: 'Words that alternate between thumbs.', config: { enforceAlternate: true } },
+  { id: 'mixed-short', title: 'Mixed Short Words', description: 'A mix of short words from both thumbs.', config: { maxLength: 4 } },
+  { id: 'mixed-fast', title: 'Mixed Fast', description: 'Full word set, faster pace.', config: { level: 2 } },
+  { id: 'full-set', title: 'Full Set Challenge', description: 'The complete word list.', config: {} },
+];
+
+const defaultWords = ['fast', 'thumb', 'type', 'speed', 'focus', 'quick', 'learn', 'tap', 'flow', 'left', 'right', 'home'];
 
 const saveProgress = () => {
   localStorage.setItem('tr_unlocked', JSON.stringify(state.unlockedLessons));
@@ -254,11 +266,20 @@ const loadData = async () => {
     const [wRes, lRes] = await Promise.all([fetch('/data/words.json'), fetch('/data/lessons.json')]);
     state.words = (await wRes.json()).filter(Boolean);
     state.lessons = await lRes.json();
-    renderLessonPicker();
-    renderThemePicker();
   } catch (err) {
     console.error('Failed to load data', err);
+    state.words = defaultWords;
+    state.lessons = defaultLessons;
   }
+  
+  // Ensure dropdowns are populated even if data loading fails
+  setTimeout(() => {
+    renderLessonPicker();
+    renderThemePicker();
+  }, 0);
+  
+  renderLessonPicker();
+  renderThemePicker();
 };
 
 const renderLessonPicker = () => {
@@ -320,6 +341,12 @@ const clearFalling = () => {
   state.falling = [];
 };
 
+const updateWordPositions = () => {
+  if (state.falling.length > 1) {
+    updateActiveWord();
+  }
+};
+
 const spawnInterval = () => Math.max(MIN_SPAWN, BASE_SPAWN - (state.level - 1) * 180);
 const fallDuration = () => Math.max(MIN_FALL, BASE_FALL - (state.level - 1) * 900);
 
@@ -339,9 +366,11 @@ const celebrateHighScore = () => {
 };
 
 const handleMiss = (el) => {
+  if (el.dataset.removed === '1') return;
   if (!state.running) return;
   const idx = state.falling.findIndex((f) => f.el === el);
   if (idx === -1) return;
+  el.dataset.removed = '1';
   el.remove();
   state.falling.splice(idx, 1);
   state.lives -= 1;
@@ -352,9 +381,50 @@ const handleMiss = (el) => {
   }
 };
 
+const updateActiveWord = () => {
+  // Remove active class from all words
+  state.falling.forEach(f => f.el.classList.remove('active-word'));
+  
+  if (state.falling.length === 0) return;
+  
+  // Find the word closest to bottom (highest position)
+  let activeEntry = state.falling[0];
+  const playfieldRect = playfield.getBoundingClientRect();
+  
+  state.falling.forEach(entry => {
+    const rect = entry.el.getBoundingClientRect();
+    if (rect.top > playfieldRect.top) { // Only consider words that have started falling
+      const entryBottom = rect.bottom;
+      const activeBottom = activeEntry.el.getBoundingClientRect().bottom;
+      if (entryBottom > activeBottom) {
+        activeEntry = entry;
+      }
+    }
+  });
+  
+  activeEntry.el.classList.add('active-word');
+};
+
+const highlightWordProgress = (el, progress) => {
+  const word = el.textContent;
+  if (progress.length === 0) {
+    el.innerHTML = word;
+    return;
+  }
+  
+  const typed = word.substring(0, progress.length);
+  const remaining = word.substring(progress.length);
+  el.innerHTML = `<span class="typed">${typed}</span>${remaining}`;
+};
+
 const popWord = (entry, { breakCombo = false, awardScore = true } = {}) => {
   const idx = state.falling.indexOf(entry);
   if (idx === -1) return;
+  if (entry.missHandler) {
+    entry.el.removeEventListener('animationend', entry.missHandler);
+  }
+  entry.el.dataset.removed = '1';
+  entry.el.style.animationPlayState = 'paused';
   entry.el.classList.add('popped');
   setTimeout(() => entry.el.remove(), 120);
   state.falling.splice(idx, 1);
@@ -374,6 +444,9 @@ const popWord = (entry, { breakCombo = false, awardScore = true } = {}) => {
   state.recentWords.push({ time: now, chars: entry.word.length });
   if (state.recentWords.length > 10) state.recentWords.shift();
   updateHUD();
+  
+  // Update active word after popping
+  updateActiveWord();
 };
 
 const mulberry32 = (a) => {
@@ -401,7 +474,7 @@ const setRng = () => {
 
 const spawnWord = () => {
   if (!state.running || !state.activeWords.length) return;
-  if (state.falling.length >= 2) return;
+  if (state.falling.length >= 3) return; // Allow up to 3 words on screen
 
   let word;
   const lesson = state.lessons[state.currentLessonIndex];
@@ -421,13 +494,21 @@ const spawnWord = () => {
   const el = document.createElement('div');
   el.className = 'word';
   el.textContent = word;
+  el.dataset.removed = '0';
+  el.dataset.typedProgress = '';
   const maxLeft = Math.max(0, playfield.clientWidth - 80);
   const left = state.rng() * maxLeft;
   el.style.left = `${left}px`;
   el.style.setProperty('--fall-duration', `${fallDuration()}ms`);
-  el.addEventListener('animationend', () => handleMiss(el));
+  const missHandler = () => handleMiss(el);
+  el.addEventListener('animationend', missHandler);
   playfield.appendChild(el);
-  state.falling.push({ word: word.toLowerCase(), el });
+  state.falling.push({ word: word.toLowerCase(), el, missHandler });
+  
+  // Set the first spawned word as active
+  if (state.falling.length === 1) {
+    updateActiveWord();
+  }
 };
 
 const restartSpawnTimer = () => {
@@ -460,6 +541,7 @@ const endGame = (reason = 'Game over') => {
   state.running = false;
   clearInterval(state.spawnTimer);
   clearInterval(state.rampTimer);
+  clearInterval(state.positionTimer);
   clearFalling();
   const unlockMsg = checkUnlock();
   overlayTitle.textContent = unlockMsg ? 'Success!' : 'Game Over';
@@ -482,6 +564,7 @@ const resetGame = () => {
   state.nextThumb = null;
   clearInterval(state.spawnTimer);
   clearInterval(state.rampTimer);
+  clearInterval(state.positionTimer);
   clearFalling();
   updateHUD();
   overlayTitle.textContent = 'Ready?';
@@ -523,50 +606,81 @@ const startGame = async () => {
   spawnWord();
   restartSpawnTimer();
   clearInterval(state.rampTimer);
+  clearInterval(state.positionTimer);
   state.rampTimer = setInterval(levelUp, RAMP_MS);
+  state.positionTimer = setInterval(updateWordPositions, 100); // Update active word every 100ms
   startBtn.disabled = true;
   restartBtn.disabled = false;
 };
 
 hiddenInput.addEventListener('input', () => {
-  const val = hiddenInput.value.trim().toLowerCase();
+  const val = hiddenInput.value.toLowerCase().replace(/[^a-z]/g, '');
   const lastChar = val.slice(-1);
   const detectedThumb = inferThumbFromChar(lastChar);
   if (detectedThumb) {
     currentThumbSide = detectedThumb;
   }
   if (!val) return;
-  const entry = state.falling.find((f) => f.word === val);
-  if (entry) {
-    const expected = getExpectedThumb(entry.word);
-    const actualThumb = detectedThumb || currentThumbSide;
-    const thumbKnown = Boolean(actualThumb);
-    let breakCombo = false;
-    if (thumbKnown) {
-      state.totalThumbs++;
-      const correct = actualThumb === expected;
-      if (correct) {
-        state.correctThumbs++;
-        state.combo += 1;
-        state.maxCombo = Math.max(state.maxCombo, state.combo);
-      } else {
-        breakCombo = true;
-        state.combo = 0;
+  if (val.length > 20) {
+    hiddenInput.value = '';
+    return;
+  }
+
+  // Find active word for typing
+  const activeEl = document.querySelector('.word.active-word');
+  const activeEntry = state.falling.find(f => f.el === activeEl);
+  
+  if (activeEntry) {
+    // Check if the current input matches the start of the active word
+    if (activeEntry.word.startsWith(val)) {
+      // Correct partial input - update progress
+      activeEntry.el.dataset.typedProgress = val;
+      highlightWordProgress(activeEntry.el, val);
+      
+      // Check if word is complete
+      if (val === activeEntry.word) {
+        const expected = getExpectedThumb(activeEntry.word);
+        const actualThumb = detectedThumb || currentThumbSide;
+        const thumbKnown = Boolean(actualThumb);
+        let breakCombo = false;
+        
+        // Mark captured immediately to avoid later misses
+        activeEntry.el.dataset.removed = '1';
+        activeEntry.el.style.animationPlayState = 'paused';
+        if (activeEntry.missHandler) {
+          activeEntry.el.removeEventListener('animationend', activeEntry.missHandler);
+        }
+        
+        if (thumbKnown) {
+          state.totalThumbs++;
+          const correct = actualThumb === expected;
+          if (correct) {
+            state.correctThumbs++;
+            state.combo += 1;
+            state.maxCombo = Math.max(state.maxCombo, state.combo);
+          } else {
+            breakCombo = true;
+            state.combo = 0;
+          }
+          const flashClass = correct ? 'correct-thumb' : 'wrong-thumb';
+          const flashDuration = correct ? 420 : 480;
+          activeEntry.el.classList.add(flashClass);
+          setTimeout(() => activeEntry.el.classList.remove(flashClass), flashDuration);
+          setTimeout(() => popWord(activeEntry, { breakCombo, awardScore: true }), flashDuration);
+        } else {
+          state.combo += 1;
+          state.maxCombo = Math.max(state.maxCombo, state.combo);
+          popWord(activeEntry, { breakCombo: false, awardScore: true });
+        }
+        updateHUD();
+        hiddenInput.value = '';
       }
-      const flashClass = correct ? 'correct-thumb' : 'wrong-thumb';
-      const flashDuration = correct ? 420 : 480;
-      entry.el.classList.add(flashClass);
-      setTimeout(() => entry.el.classList.remove(flashClass), flashDuration);
-      setTimeout(() => popWord(entry, { breakCombo, awardScore: true }), flashDuration);
     } else {
-      state.combo += 1;
-      state.maxCombo = Math.max(state.maxCombo, state.combo);
-      popWord(entry, { breakCombo: false, awardScore: true });
+      // Wrong input - flash red but don't clear combo or immediately end game
+      activeEntry.el.classList.add('wrong-flash');
+      setTimeout(() => activeEntry.el.classList.remove('wrong-flash'), 200);
+      hiddenInput.value = '';
     }
-    updateHUD();
-    hiddenInput.value = '';
-  } else if (val.length > 20) {
-    hiddenInput.value = '';
   }
 });
 
@@ -598,7 +712,9 @@ dailyBtn.addEventListener('click', () => {
 });
 
 setRng();
-loadData();
+loadData().then(() => {
+  resetGame();
+});
 
 if ('serviceWorker' in navigator) {
   if (import.meta.env.PROD) {
