@@ -47,6 +47,10 @@ const template = `
             <select id="lessonPicker" class="lesson-select"></select>
             <div id="lessonInfo" class="lesson-info"></div>
           </div>
+          <div class="lesson-control">
+            <select id="themePicker" class="lesson-select"></select>
+            <div id="themeInfo" class="lesson-info"></div>
+          </div>
           <button id="overlayRestart">Play</button>
         </div>
       </div>
@@ -74,6 +78,8 @@ const overlayMsg = document.getElementById('overlayMsg');
 const overlayRestart = document.getElementById('overlayRestart');
 const lessonPicker = document.getElementById('lessonPicker');
 const lessonInfo = document.getElementById('lessonInfo');
+const themePicker = document.getElementById('themePicker');
+const themeInfo = document.getElementById('themeInfo');
 const scoreVal = document.getElementById('scoreVal');
 const livesVal = document.getElementById('livesVal');
 const speedVal = document.getElementById('speedVal');
@@ -89,6 +95,55 @@ const MIN_SPAWN = 1400;
 const leftLetters = new Set(['q', 'w', 'e', 'r', 't', 'a', 's', 'd', 'f', 'g', 'z', 'x', 'c', 'v', 'b']);
 const rightLetters = new Set(['y', 'u', 'i', 'o', 'p', 'h', 'j', 'k', 'l', 'n', 'm']);
 let currentThumbSide = null;
+
+const themes = {
+  default: {
+    name: 'Default',
+    vars: {
+      '--bg': '#0b1220',
+      '--panel': 'rgba(255, 255, 255, 0.04)',
+      '--text': '#e6ecff',
+      '--muted': '#9fb1d5',
+      '--accent': '#7c5dff',
+      '--accent-2': '#35d1ff',
+    }
+  },
+  space: {
+    name: 'Space',
+    vars: {
+      '--bg': '#0a0a0f',
+      '--panel': 'rgba(138, 43, 226, 0.08)',
+      '--text': '#e6e6ff',
+      '--muted': '#9ca3af',
+      '--accent': '#8a2be2',
+      '--accent-2': '#00d4ff',
+    }
+  },
+  ocean: {
+    name: 'Ocean',
+    vars: {
+      '--bg': '#062042',
+      '--panel': 'rgba(59, 130, 246, 0.06)',
+      '--text': '#e0f2fe',
+      '--muted': '#93c5fd',
+      '--accent': '#0284c7',
+      '--accent-2': '#06b6d4',
+    }
+  },
+  racing: {
+    name: 'Racing',
+    vars: {
+      '--bg': '#1a1a1a',
+      '--panel': 'rgba(239, 68, 68, 0.06)',
+      '--text': '#fef2f2',
+      '--muted': '#fca5a5',
+      '--accent': '#dc2626',
+      '--accent-2': '#f59e0b',
+    }
+  }
+};
+
+let currentTheme = localStorage.getItem('tr_theme') || 'default';
 
 const getExpectedThumb = (word) => {
   const first = word[0].toLowerCase();
@@ -106,6 +161,9 @@ const state = {
   words: [],
   lessons: [],
   activeWords: [],
+  leftWords: [],
+  rightWords: [],
+  nextThumb: null,
   unlockedLessons: JSON.parse(localStorage.getItem('tr_unlocked')) || [0],
   currentLessonIndex: 0,
   running: false,
@@ -122,6 +180,36 @@ const state = {
 
 const saveProgress = () => {
   localStorage.setItem('tr_unlocked', JSON.stringify(state.unlockedLessons));
+};
+
+const applyTheme = (themeName) => {
+  const theme = themes[themeName];
+  if (!theme) return;
+  
+  Object.entries(theme.vars).forEach(([prop, value]) => {
+    document.documentElement.style.setProperty(prop, value);
+  });
+  
+  // Update body class for theme-specific styling
+  document.body.className = document.body.className.replace(/theme-\w+/, '');
+  document.body.classList.add(`theme-${themeName}`);
+  
+  currentTheme = themeName;
+  localStorage.setItem('tr_theme', themeName);
+  updateThemeInfo();
+};
+
+const renderThemePicker = () => {
+  themePicker.innerHTML = Object.entries(themes).map(([key, theme]) => 
+    `<option value="${key}">${theme.name}</option>`
+  ).join('');
+  themePicker.value = currentTheme;
+  applyTheme(currentTheme);
+};
+
+const updateThemeInfo = () => {
+  themeInfo.textContent = `${themes[currentTheme].name} theme active`;
+  themeInfo.style.color = getComputedStyle(document.documentElement).getPropertyValue('--accent-2');
 };
 
 const focusInput = () => {
@@ -162,8 +250,10 @@ const loadData = async () => {
     state.words = (await wRes.json()).filter(Boolean);
     state.lessons = await lRes.json();
     renderLessonPicker();
+    renderThemePicker();
   } catch (err) {
     console.error('Failed to load data', err);
+    renderThemePicker();
   }
 };
 
@@ -197,6 +287,10 @@ const updateLessonInfo = () => {
 };
 
 lessonPicker.addEventListener('change', updateLessonInfo);
+
+themePicker.addEventListener('change', (e) => {
+  applyTheme(e.target.value);
+});
 
 const updateHUD = () => {
   scoreVal.textContent = state.score.toString();
@@ -267,14 +361,13 @@ const spawnWord = () => {
   
   if (lesson?.config?.enforceAlternate) {
      // Deterministic alternation
-     const targetThumb = state.nextThumb;
+     const targetThumb = state.nextThumb || 'left';
      const sourceList = targetThumb === 'left' ? state.leftWords : state.rightWords;
-     
      if (sourceList && sourceList.length > 0) {
        word = sourceList[Math.floor(Math.random() * sourceList.length)];
        state.nextThumb = targetThumb === 'left' ? 'right' : 'left';
      } else {
-       // Fallback if one side has no words (shouldn't happen with full dict)
+       // Fallback if one side has no words
        word = state.activeWords[Math.floor(Math.random() * state.activeWords.length)];
      }
   } else {
@@ -343,6 +436,7 @@ const resetGame = () => {
   state.correctThumbs = 0;
   state.totalThumbs = 0;
   state.recentWords = [];
+  state.nextThumb = null;
   clearInterval(state.spawnTimer);
   clearInterval(state.rampTimer);
   clearFalling();
@@ -357,6 +451,9 @@ const startGame = async () => {
   const idx = parseInt(lessonPicker.value);
   state.currentLessonIndex = idx;
   state.activeWords = filterWordsForLesson(state.lessons[idx]);
+  state.leftWords = state.activeWords.filter((w) => getExpectedThumb(w) === 'left');
+  state.rightWords = state.activeWords.filter((w) => getExpectedThumb(w) === 'right');
+  state.nextThumb = state.lessons[idx]?.config?.enforceAlternate ? 'left' : null;
   
   if (state.activeWords.length === 0) {
     alert("No words found for this lesson configuration!");
@@ -445,6 +542,11 @@ overlayRestart.addEventListener('click', () => {
   }
 });
 
+// Initialize theme immediately
+renderThemePicker();
+applyTheme(currentTheme);
+
+// Initialize app
 loadData();
 
 if ('serviceWorker' in navigator) {
