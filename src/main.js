@@ -210,7 +210,7 @@ const saveProgress = () => {
 
 const focusInput = (e) => {
   // Don't steal focus from select elements
-  if (e.target && (e.target.tagName === 'SELECT' || e.target.closest('.lesson-select'))) {
+  if (e && e.target && (e.target.tagName === 'SELECT' || e.target.closest('.lesson-select'))) {
     return;
   }
   hiddenInput.focus({ preventScroll: true });
@@ -428,15 +428,29 @@ const updateActiveWord = () => {
 };
 
 const highlightWordProgress = (el, progress) => {
-  const word = el.textContent;
+  const word = el.dataset.originalWord || el.textContent;
+  el.dataset.originalWord = word; // Store original word for reference
+  
   if (progress.length === 0) {
-    el.innerHTML = word;
+    // Add thumb indicator to first letter
+    const firstLetter = word[0];
+    const isLeft = leftLetters.has(firstLetter.toLowerCase());
+    const firstLetterClass = isLeft ? 'first-letter-left' : 'first-letter-right';
+    el.innerHTML = `<span class="${firstLetterClass}">${firstLetter}</span>${word.substring(1)}`;
     return;
   }
   
   const typed = word.substring(0, progress.length);
   const remaining = word.substring(progress.length);
-  el.innerHTML = `<span class="typed">${typed}</span>${remaining}`;
+  const firstLetter = word[0];
+  const isLeft = leftLetters.has(firstLetter.toLowerCase());
+  const firstLetterClass = isLeft ? 'first-letter-left' : 'first-letter-right';
+  
+  if (progress.length === 1) {
+    el.innerHTML = `<span class="typed ${firstLetterClass}">${typed}</span>${remaining}`;
+  } else {
+    el.innerHTML = `<span class="typed">${typed}</span>${remaining}`;
+  }
 };
 
 const popWord = (entry, { breakCombo = false, awardScore = true } = {}) => {
@@ -516,8 +530,15 @@ const spawnWord = () => {
   const el = document.createElement('div');
   el.className = 'word';
   el.textContent = word;
+  el.dataset.originalWord = word;
   el.dataset.removed = '0';
   el.dataset.typedProgress = '';
+  
+  // Add thumb indicator to first letter
+  const firstLetter = word[0];
+  const isLeft = leftLetters.has(firstLetter.toLowerCase());
+  const firstLetterClass = isLeft ? 'first-letter-left' : 'first-letter-right';
+  el.innerHTML = `<span class="${firstLetterClass}">${firstLetter}</span>${word.substring(1)}`;
   const maxLeft = Math.max(0, playfield.clientWidth - 80);
   const left = state.rng() * maxLeft;
   el.style.left = `${left}px`;

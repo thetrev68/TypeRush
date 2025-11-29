@@ -215,8 +215,14 @@ body.theme-racing .word {
   animation: wrong-flash 320ms ease;
 }
 
-.word::first-letter {
-  color: var(--accent-2);
+.word .first-letter-left {
+  color: #16c784; /* Green for left hand */
+  font-weight: bold;
+}
+
+.word .first-letter-right {
+  color: #f59e0b; /* Orange for right hand */
+  font-weight: bold;
 }
 
 .word.active-word {
