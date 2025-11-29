@@ -29,6 +29,10 @@ const template = `
         <strong id="speedVal">Lv 1</strong>
       </div>
       <div class="hud-item">
+        <span>WPM</span>
+        <strong id="wpmVal">0</strong>
+      </div>
+      <div class="hud-item">
         <span>Accuracy</span>
         <strong id="accuracyVal">100%</strong>
       </div>
@@ -73,6 +77,7 @@ const lessonInfo = document.getElementById('lessonInfo');
 const scoreVal = document.getElementById('scoreVal');
 const livesVal = document.getElementById('livesVal');
 const speedVal = document.getElementById('speedVal');
+const wpmVal = document.getElementById('wpmVal');
 const accuracyVal = document.getElementById('accuracyVal');
 
 const BASE_FALL = 13000;
@@ -166,7 +171,7 @@ const renderLessonPicker = () => {
   lessonPicker.innerHTML = state.lessons.map((l, i) => {
     const locked = !state.unlockedLessons.includes(i);
     const prefix = locked ? '🔒 ' : '';
-    return `<option value="${i}" ${locked ? 'disabled' : ''}>${prefix}${l.title}</option>`;
+    return `<option value="${i}">${prefix}${l.title}</option>`;
   }).join('');
   lessonPicker.value = state.currentLessonIndex;
   updateLessonInfo();
@@ -176,8 +181,18 @@ const updateLessonInfo = () => {
   const idx = parseInt(lessonPicker.value);
   state.currentLessonIndex = idx;
   const lesson = state.lessons[idx];
+  const locked = !state.unlockedLessons.includes(idx);
+  
   if (lesson) {
-    lessonInfo.textContent = lesson.description;
+    if (locked) {
+      lessonInfo.textContent = "Locked: Complete previous lesson with 95% Acc & 30 WPM.";
+      lessonInfo.style.color = "#ff4d6d";
+      startBtn.disabled = true;
+    } else {
+      lessonInfo.textContent = lesson.description;
+      lessonInfo.style.color = "var(--accent-2)";
+      startBtn.disabled = false;
+    }
   }
 };
 
@@ -187,6 +202,7 @@ const updateHUD = () => {
   scoreVal.textContent = state.score.toString();
   livesVal.textContent = `${state.lives}`;
   speedVal.textContent = `Lv ${state.level}`;
+  wpmVal.textContent = calculateWPM().toString();
   
   const acc = state.totalThumbs ? Math.round((state.correctThumbs / state.totalThumbs) * 100) : 100;
   accuracyVal.textContent = `${acc}%`;
@@ -246,20 +262,23 @@ const spawnWord = () => {
   if (!state.running || !state.activeWords.length) return;
   if (state.falling.length >= 2) return;
   
-  let word = state.activeWords[Math.floor(Math.random() * state.activeWords.length)];
-  
-  // Enforce alternation if required
+  let word;
   const lesson = state.lessons[state.currentLessonIndex];
-  if (lesson?.config?.enforceAlternate && state.falling.length > 0) {
-     const lastWord = state.falling[state.falling.length - 1].word;
-     const lastThumb = getExpectedThumb(lastWord);
-     const nextThumb = lastThumb === 'left' ? 'right' : 'left';
+  
+  if (lesson?.config?.enforceAlternate) {
+     // Deterministic alternation
+     const targetThumb = state.nextThumb;
+     const sourceList = targetThumb === 'left' ? state.leftWords : state.rightWords;
      
-     // Try to find a word for the other thumb (simple retry logic)
-     for (let i = 0; i < 10; i++) {
-       if (getExpectedThumb(word) === nextThumb) break;
+     if (sourceList && sourceList.length > 0) {
+       word = sourceList[Math.floor(Math.random() * sourceList.length)];
+       state.nextThumb = targetThumb === 'left' ? 'right' : 'left';
+     } else {
+       // Fallback if one side has no words (shouldn't happen with full dict)
        word = state.activeWords[Math.floor(Math.random() * state.activeWords.length)];
      }
+  } else {
+     word = state.activeWords[Math.floor(Math.random() * state.activeWords.length)];
   }
 
   const el = document.createElement('div');
@@ -342,6 +361,14 @@ const startGame = async () => {
   if (state.activeWords.length === 0) {
     alert("No words found for this lesson configuration!");
     return;
+  }
+
+  // Setup alternation buckets if needed
+  const lesson = state.lessons[idx];
+  if (lesson.config.enforceAlternate) {
+    state.leftWords = state.activeWords.filter(w => getExpectedThumb(w) === 'left');
+    state.rightWords = state.activeWords.filter(w => getExpectedThumb(w) === 'right');
+    state.nextThumb = Math.random() > 0.5 ? 'left' : 'right';
   }
 
   state.running = true;
