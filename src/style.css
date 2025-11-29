@@ -71,7 +71,7 @@ body {
 
 .hud {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 12px;
 }
 
@@ -124,6 +124,21 @@ body {
   animation: pop 120ms ease forwards;
 }
 
+.word.correct-thumb {
+  background: rgba(0, 255, 0, 0.4);
+  border-color: rgba(0, 255, 0, 0.6);
+}
+
+.word.wrong-thumb {
+  background: rgba(255, 0, 0, 0.5);
+  border-color: rgba(255, 0, 0, 0.7);
+  animation: wrong-flash 300ms ease;
+}
+
+.word::first-letter {
+  color: var(--accent-2);
+}
+
 @keyframes fall {
   from {
     transform: translateY(-40px);
@@ -142,6 +157,12 @@ body {
     transform: scale(1.08);
     opacity: 0;
   }
+}
+
+@keyframes wrong-flash {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
 }
 
 .overlay {

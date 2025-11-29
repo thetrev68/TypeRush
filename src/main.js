@@ -28,6 +28,10 @@ const template = `
         <span>Speed</span>
         <strong id="speedVal">Lv 1</strong>
       </div>
+      <div class="hud-item">
+        <span>Accuracy</span>
+        <strong id="accuracyVal">100%</strong>
+      </div>
     </section>
 
     <section class="playfield" id="playfield">
@@ -63,12 +67,21 @@ const overlayRestart = document.getElementById('overlayRestart');
 const scoreVal = document.getElementById('scoreVal');
 const livesVal = document.getElementById('livesVal');
 const speedVal = document.getElementById('speedVal');
+const accuracyVal = document.getElementById('accuracyVal');
 
 const BASE_FALL = 9000;
 const BASE_SPAWN = 1600;
 const RAMP_MS = 30000;
 const MIN_FALL = 2200;
 const MIN_SPAWN = 650;
+
+const leftLetters = new Set(['q', 'w', 'e', 'r', 't', 'a', 's', 'd', 'f', 'g', 'z', 'x', 'c', 'v', 'b']);
+let currentThumbSide = null;
+
+const getExpectedThumb = (word) => {
+  const first = word[0].toLowerCase();
+  return leftLetters.has(first) ? 'left' : 'right';
+};
 
 const state = {
   words: [],
@@ -79,6 +92,8 @@ const state = {
   spawnTimer: null,
   rampTimer: null,
   falling: [],
+  correctThumbs: 0,
+  totalThumbs: 0,
 };
 
 const focusInput = () => {
@@ -89,6 +104,11 @@ const focusInput = () => {
 ['click', 'touchstart'].forEach((evt) => {
   document.addEventListener(evt, focusInput, { passive: true });
 });
+
+document.addEventListener('touchstart', (e) => {
+  const x = e.touches[0].clientX;
+  currentThumbSide = x < window.innerWidth / 2 ? 'left' : 'right';
+}, { passive: true });
 
 const loadWords = async () => {
   if (state.words.length) return state.words;
@@ -107,6 +127,7 @@ const updateHUD = () => {
   scoreVal.textContent = state.score.toString();
   livesVal.textContent = `${state.lives}`;
   speedVal.textContent = `Lv ${state.level}`;
+  accuracyVal.textContent = state.totalThumbs ? `${Math.round((state.correctThumbs / state.totalThumbs) * 100)}%` : '100%';
 };
 
 const clearFalling = () => {
@@ -182,6 +203,8 @@ const resetGame = () => {
   state.score = 0;
   state.lives = 3;
   state.level = 1;
+  state.correctThumbs = 0;
+  state.totalThumbs = 0;
   clearInterval(state.spawnTimer);
   clearInterval(state.rampTimer);
   clearFalling();
@@ -197,6 +220,8 @@ const startGame = async () => {
   state.score = 0;
   state.lives = 3;
   state.level = 1;
+  state.correctThumbs = 0;
+  state.totalThumbs = 0;
   clearFalling();
   updateHUD();
   overlay.classList.add('hidden');
@@ -215,7 +240,19 @@ hiddenInput.addEventListener('input', () => {
   if (!val) return;
   const entry = state.falling.find((f) => f.word === val);
   if (entry) {
+    const expected = getExpectedThumb(entry.word);
+    const correctThumb = currentThumbSide === expected;
+    state.totalThumbs++;
+    if (correctThumb) {
+      state.correctThumbs++;
+      entry.el.classList.add('correct-thumb');
+      setTimeout(() => entry.el.classList.remove('correct-thumb'), 200);
+    } else {
+      entry.el.classList.add('wrong-thumb');
+      setTimeout(() => entry.el.classList.remove('wrong-thumb'), 300);
+    }
     popWord(entry);
+    updateHUD();
     hiddenInput.value = '';
   } else if (val.length > 20) {
     hiddenInput.value = '';
