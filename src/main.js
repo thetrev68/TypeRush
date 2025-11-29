@@ -601,9 +601,19 @@ setRng();
 loadData();
 
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/service-worker.js').catch((err) => {
-      console.error('Service worker registration failed', err);
+  if (import.meta.env.PROD) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/service-worker.js').catch((err) => {
+        console.error('Service worker registration failed', err);
+      });
     });
-  });
+  } else {
+    // In dev, remove any registered SW/caches so Vite HMR works reliably.
+    navigator.serviceWorker.getRegistrations().then((regs) => regs.forEach((r) => r.unregister()));
+    if (window.caches) {
+      caches.keys().then((keys) =>
+        keys.filter((k) => k.startsWith('typerush-cache')).forEach((k) => caches.delete(k))
+      );
+    }
+  }
 }
