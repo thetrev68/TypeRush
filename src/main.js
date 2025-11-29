@@ -69,11 +69,11 @@ const livesVal = document.getElementById('livesVal');
 const speedVal = document.getElementById('speedVal');
 const accuracyVal = document.getElementById('accuracyVal');
 
-const BASE_FALL = 9000;
-const BASE_SPAWN = 1600;
-const RAMP_MS = 30000;
-const MIN_FALL = 2200;
-const MIN_SPAWN = 650;
+const BASE_FALL = 13000;
+const BASE_SPAWN = 2500;
+const RAMP_MS = 50000;
+const MIN_FALL = 5000;
+const MIN_SPAWN = 1400;
 
 const leftLetters = new Set(['q', 'w', 'e', 'r', 't', 'a', 's', 'd', 'f', 'g', 'z', 'x', 'c', 'v', 'b']);
 let currentThumbSide = null;
@@ -83,11 +83,18 @@ const getExpectedThumb = (word) => {
   return leftLetters.has(first) ? 'left' : 'right';
 };
 
+const inferThumbFromChar = (char) => {
+  if (!char) return null;
+  const lower = char.toLowerCase();
+  if (!/[a-z]/.test(lower)) return null;
+  return leftLetters.has(lower) ? 'left' : 'right';
+};
+
 const state = {
   words: [],
   running: false,
   score: 0,
-  lives: 3,
+  lives: 5,
   level: 1,
   spawnTimer: null,
   rampTimer: null,
@@ -163,6 +170,7 @@ const popWord = (entry) => {
 
 const spawnWord = () => {
   if (!state.running || !state.words.length) return;
+  if (state.falling.length >= 2) return;
   const word = state.words[Math.floor(Math.random() * state.words.length)];
   const el = document.createElement('div');
   el.className = 'word';
@@ -201,7 +209,7 @@ const endGame = (reason = 'Game over') => {
 
 const resetGame = () => {
   state.score = 0;
-  state.lives = 3;
+  state.lives = 5;
   state.level = 1;
   state.correctThumbs = 0;
   state.totalThumbs = 0;
@@ -218,7 +226,7 @@ const startGame = async () => {
   await loadWords();
   state.running = true;
   state.score = 0;
-  state.lives = 3;
+  state.lives = 5;
   state.level = 1;
   state.correctThumbs = 0;
   state.totalThumbs = 0;
@@ -237,21 +245,29 @@ const startGame = async () => {
 
 hiddenInput.addEventListener('input', () => {
   const val = hiddenInput.value.trim().toLowerCase();
+  const lastChar = val.slice(-1);
+  const detectedThumb = inferThumbFromChar(lastChar);
+  if (detectedThumb) {
+    currentThumbSide = detectedThumb;
+  }
   if (!val) return;
   const entry = state.falling.find((f) => f.word === val);
   if (entry) {
     const expected = getExpectedThumb(entry.word);
-    const correctThumb = currentThumbSide === expected;
-    state.totalThumbs++;
-    if (correctThumb) {
-      state.correctThumbs++;
-      entry.el.classList.add('correct-thumb');
-      setTimeout(() => entry.el.classList.remove('correct-thumb'), 200);
+    const actualThumb = detectedThumb || currentThumbSide;
+    const thumbKnown = Boolean(actualThumb);
+    if (thumbKnown) {
+      state.totalThumbs++;
+      const correct = actualThumb === expected;
+      if (correct) state.correctThumbs++;
+      const flashClass = correct ? 'correct-thumb' : 'wrong-thumb';
+      const flashDuration = correct ? 420 : 480;
+      entry.el.classList.add(flashClass);
+      setTimeout(() => entry.el.classList.remove(flashClass), flashDuration);
+      setTimeout(() => popWord(entry), flashDuration);
     } else {
-      entry.el.classList.add('wrong-thumb');
-      setTimeout(() => entry.el.classList.remove('wrong-thumb'), 300);
+      popWord(entry);
     }
-    popWord(entry);
     updateHUD();
     hiddenInput.value = '';
   } else if (val.length > 20) {

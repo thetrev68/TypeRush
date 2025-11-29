@@ -97,8 +97,10 @@ body {
 
 .playfield {
   position: relative;
-  height: 60vh;
-  min-height: 360px;
+  height: 65vh;
+  min-height: 420px;
+  margin-top: 12px;
+  padding-top: 20px;
   background: linear-gradient(160deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02));
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 18px;
@@ -108,7 +110,7 @@ body {
 
 .word {
   position: absolute;
-  top: -40px;
+  top: 0;
   padding: 10px 14px;
   background: rgba(255, 255, 255, 0.12);
   border: 1px solid rgba(255, 255, 255, 0.15);
@@ -125,14 +127,19 @@ body {
 }
 
 .word.correct-thumb {
-  background: rgba(0, 255, 0, 0.4);
-  border-color: rgba(0, 255, 0, 0.6);
+  background: #16c784;
+  color: #0b0f18;
+  border-color: #0ea062;
+  box-shadow: 0 0 0 6px rgba(22, 199, 132, 0.35);
+  animation: correct-flash 320ms ease;
 }
 
 .word.wrong-thumb {
-  background: rgba(255, 0, 0, 0.5);
-  border-color: rgba(255, 0, 0, 0.7);
-  animation: wrong-flash 300ms ease;
+  background: #ff4d6d;
+  color: #0b0f18;
+  border-color: #e63350;
+  box-shadow: 0 0 0 6px rgba(255, 77, 109, 0.35);
+  animation: wrong-flash 320ms ease;
 }
 
 .word::first-letter {
@@ -141,10 +148,10 @@ body {
 
 @keyframes fall {
   from {
-    transform: translateY(-40px);
+    transform: translateY(0);
   }
   to {
-    transform: translateY(calc(100% + 40px));
+    transform: translateY(calc(120% + 40px));
   }
 }
 
@@ -161,7 +168,13 @@ body {
 
 @keyframes wrong-flash {
   0% { transform: scale(1); }
-  50% { transform: scale(1.05); }
+  50% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+@keyframes correct-flash {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.08); }
   100% { transform: scale(1); }
 }
 
