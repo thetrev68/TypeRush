@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="TypeRush icon">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7c5dff"/>
+      <stop offset="100%" stop-color="#35d1ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="#0f172a"/>
+  <rect x="64" y="120" width="384" height="272" rx="32" fill="url(#g)" opacity="0.18"/>
+  <rect x="96" y="160" width="320" height="200" rx="24" fill="url(#g)" opacity="0.32"/>
+  <text x="256" y="290" text-anchor="middle" font-family="Montserrat, Inter, sans-serif" font-size="140" font-weight="700" fill="#e8edff">
+    T
+  </text>
+</svg>

@@ -1,0 +1,17 @@
+{
+  "name": "TypeRush",
+  "short_name": "TypeRush",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "description": "Learn two-thumb typing with a fast, lightweight PWA.",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
