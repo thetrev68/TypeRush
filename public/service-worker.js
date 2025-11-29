@@ -1,5 +1,5 @@
-const CACHE_NAME = 'typerush-cache-v1';
-const ASSETS = ['/', '/index.html', '/manifest.json', '/icon.svg'];
+const CACHE_NAME = 'typerush-cache-v2';
+const ASSETS = ['/', '/index.html', '/manifest.json', '/icon.svg', '/data/words.json'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
