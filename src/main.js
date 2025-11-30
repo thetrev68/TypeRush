@@ -292,13 +292,11 @@ const updateLessonInfo = () => {
   const locked = !state.unlockedLessons.includes(idx);
   if (lesson) {
     if (locked) {
-      lessonInfo.textContent = 'Locked: Finish previous with 95% acc & 30 WPM.';
+      lessonInfo.textContent = 'Locked: Finish previous with 80% acc OR 20 WPM OR 10 words.';
       lessonInfo.style.color = '#ff4d6d';
-      startBtn.disabled = true;
     } else {
       lessonInfo.textContent = lesson.description;
       lessonInfo.style.color = 'var(--accent-2)';
-      startBtn.disabled = false;
     }
   }
 };
@@ -627,8 +625,6 @@ const endGame = (reason = 'Game over') => {
   overlayTitle.textContent = unlockMsg ? 'Success!' : 'Game Over';
   overlayMsg.textContent = unlockMsg || reason;
   overlay.classList.remove('hidden');
-  startBtn.disabled = false;
-  restartBtn.disabled = false;
   lessonPicker.disabled = false;
 };
 
@@ -689,8 +685,6 @@ const startGame = async () => {
   clearInterval(state.positionTimer);
   state.rampTimer = setInterval(levelUp, RAMP_MS);
   state.positionTimer = setInterval(updateWordPositions, 100); // Update active word every 100ms
-  startBtn.disabled = true;
-  restartBtn.disabled = false;
 };
 
 hiddenInput.addEventListener('input', () => {
