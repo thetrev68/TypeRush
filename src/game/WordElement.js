@@ -16,16 +16,20 @@ export class WordElement {
   createElement() {
     const el = document.createElement('div');
     el.className = 'word';
-    el.textContent = this.word;
     el.dataset.originalWord = this.word;
     el.dataset.removed = '0';
     el.dataset.typedProgress = '';
 
-    // Add thumb indicator to first letter
-    const firstLetter = this.word[0];
+    const firstLetter = this.word[0] ?? '';
     const isLeft = leftLetters.has(firstLetter.toLowerCase());
     const firstLetterClass = isLeft ? 'first-letter-left' : 'first-letter-right';
-    el.innerHTML = `<span class="${firstLetterClass}">${firstLetter}</span>${this.word.substring(1)}`;
+
+    const span = document.createElement('span');
+    span.className = firstLetterClass;
+    span.textContent = firstLetter;
+
+    el.appendChild(span);
+    el.appendChild(document.createTextNode(this.word.substring(1)));
 
     return el;
   }
@@ -35,24 +39,31 @@ export class WordElement {
     this.el.dataset.originalWord = word;
 
     if (progress.length === 0) {
-      const firstLetter = word[0];
+      // Re-render base word safely
+      this.el.textContent = '';
+      const firstLetter = word[0] ?? '';
       const isLeft = leftLetters.has(firstLetter.toLowerCase());
       const firstLetterClass = isLeft ? 'first-letter-left' : 'first-letter-right';
-      this.el.innerHTML = `<span class="${firstLetterClass}">${firstLetter}</span>${word.substring(1)}`;
+      const span = document.createElement('span');
+      span.className = firstLetterClass;
+      span.textContent = firstLetter;
+      this.el.appendChild(span);
+      this.el.appendChild(document.createTextNode(word.substring(1)));
       return;
     }
 
     const typed = word.substring(0, progress.length);
     const remaining = word.substring(progress.length);
-    const firstLetter = word[0];
+    const firstLetter = word[0] ?? '';
     const isLeft = leftLetters.has(firstLetter.toLowerCase());
     const firstLetterClass = isLeft ? 'first-letter-left' : 'first-letter-right';
 
-    if (progress.length === 1) {
-      this.el.innerHTML = `<span class="typed ${firstLetterClass}">${typed}</span>${remaining}`;
-    } else {
-      this.el.innerHTML = `<span class="typed">${typed}</span>${remaining}`;
-    }
+    this.el.textContent = '';
+    const span = document.createElement('span');
+    span.className = progress.length === 1 ? `typed ${firstLetterClass}` : 'typed';
+    span.textContent = typed;
+    this.el.appendChild(span);
+    this.el.appendChild(document.createTextNode(remaining));
   }
 
   setActive(isActive) {
