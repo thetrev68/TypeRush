@@ -125,9 +125,8 @@ export class InputHandler {
   popWord(entry, { breakCombo = false, awardScore = true } = {}) {
     if (awardScore) {
       this.scoreManager.awardScore(entry.word.length, this.state.combo, breakCombo);
-    } else if (breakCombo) {
-      this.scoreManager.breakCombo();
     }
+    // Note: combo breaking must be done by the caller to avoid double-breaking
 
     this.scoreManager.trackWordTyped(entry.word.length);
 
