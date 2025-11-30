@@ -1,4 +1,6 @@
 import './style.css';
+import { BASE_FALL, BASE_SPAWN, RAMP_MS, MIN_FALL, MIN_SPAWN, leftLetters, rightLetters, defaultLessons, defaultWords } from './config/constants.js';
+import { themes } from './config/themes.js';
 
 const root = document.querySelector('#app');
 
@@ -91,63 +93,7 @@ const wpmVal = document.getElementById('wpmVal');
 const accuracyVal = document.getElementById('accuracyVal');
 const comboVal = document.getElementById('comboVal');
 
-const BASE_FALL = 13000;
-const BASE_SPAWN = 2500;
-const RAMP_MS = 50000;
-const MIN_FALL = 5000;
-const MIN_SPAWN = 1400;
-
-const leftLetters = new Set(['q', 'w', 'e', 'r', 't', 'a', 's', 'd', 'f', 'g', 'z', 'x', 'c', 'v', 'b']);
-const rightLetters = new Set(['y', 'u', 'i', 'o', 'p', 'h', 'j', 'k', 'l', 'n', 'm']);
 let currentThumbSide = null;
-
-const themes = {
-  default: {
-    name: 'Default',
-    vars: {
-      '--bg': '#0b1220',
-      '--panel': 'rgba(255, 255, 255, 0.04)',
-      '--text': '#e6ecff',
-      '--muted': '#9fb1d5',
-      '--accent': '#7c5dff',
-      '--accent-2': '#35d1ff',
-    },
-  },
-  space: {
-    name: 'Space',
-    vars: {
-      '--bg': '#0a0a0f',
-      '--panel': 'rgba(138, 43, 226, 0.08)',
-      '--text': '#e6e6ff',
-      '--muted': '#9ca3af',
-      '--accent': '#8a2be2',
-      '--accent-2': '#00d4ff',
-    },
-  },
-  ocean: {
-    name: 'Ocean',
-    vars: {
-      '--bg': '#062042',
-      '--panel': 'rgba(59, 130, 246, 0.06)',
-      '--text': '#e0f2fe',
-      '--muted': '#93c5fd',
-      '--accent': '#0284c7',
-      '--accent-2': '#06b6d4',
-    },
-  },
-  racing: {
-    name: 'Racing',
-    vars: {
-      '--bg': '#1a1a1a',
-      '--panel': 'rgba(239, 68, 68, 0.06)',
-      '--text': '#fef2f2',
-      '--muted': '#fca5a5',
-      '--accent': '#dc2626',
-      '--accent-2': '#f59e0b',
-    },
-  },
-};
-
 let currentTheme = localStorage.getItem('tr_theme') || 'default';
 
 const getExpectedThumb = (word) => (leftLetters.has(word[0].toLowerCase()) ? 'left' : 'right');
@@ -185,17 +131,6 @@ const state = {
   dailyMode: false,
   rng: Math.random,
 };
-
-const defaultLessons = [
-  { id: 'left-hand', title: 'Left Hand Practice', description: 'Words typed only with your left thumb.', config: { allowedSet: 'left' } },
-  { id: 'right-hand', title: 'Right Hand Practice', description: 'Words typed only with your right thumb.', config: { allowedSet: 'right' } },
-  { id: 'alternating', title: 'Alternating Thumbs', description: 'Words that alternate between thumbs.', config: { enforceAlternate: true } },
-  { id: 'mixed-short', title: 'Mixed Short Words', description: 'A mix of short words from both thumbs.', config: { maxLength: 4 } },
-  { id: 'mixed-fast', title: 'Mixed Fast', description: 'Full word set, faster pace.', config: { level: 2 } },
-  { id: 'full-set', title: 'Full Set Challenge', description: 'The complete word list.', config: {} },
-];
-
-const defaultWords = ['fast', 'thumb', 'type', 'speed', 'focus', 'quick', 'learn', 'tap', 'flow', 'left', 'right', 'home'];
 
 const saveProgress = () => {
   localStorage.setItem('tr_unlocked', JSON.stringify(state.unlockedLessons));
