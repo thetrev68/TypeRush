@@ -33,11 +33,6 @@ export class GameLoop {
     this.state.level += 1;
     this.hud.update(this.state);
     this.wordSpawner.stopTimer();
-    this.wordSpawner.startTimer(() => {
-      if (this.state.falling.length === 1) {
-        this.activeWordTracker.update(this.state.falling);
-      }
-    });
     this.showLevelUpPause();
   }
 
