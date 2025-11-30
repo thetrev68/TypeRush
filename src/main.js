@@ -13,6 +13,8 @@ import { HUD } from './ui/HUD.js';
 import { ThemeManager } from './ui/ThemeManager.js';
 import { LessonPicker } from './ui/LessonPicker.js';
 import { OverlayManager } from './ui/OverlayManager.js';
+import { WordSpawner } from './game/WordSpawner.js';
+import { ActiveWordTracker } from './game/ActiveWordTracker.js';
 
 const root = document.querySelector('#app');
 
@@ -142,6 +144,24 @@ const themeManager = new ThemeManager(themePicker, themeInfo);
 const lessonPickerManager = new LessonPicker(lessonPicker, lessonInfo, state);
 const overlayManager = new OverlayManager(overlay, overlayTitle, overlayMsg, overlayRestart);
 
+const handleMiss = (el) => {
+  if (el.dataset.removed === '1') return;
+  if (!state.running) return;
+  const idx = state.falling.findIndex((f) => f.el === el);
+  if (idx === -1) return;
+  el.dataset.removed = '1';
+  el.remove();
+  state.falling.splice(idx, 1);
+  scoreManager.loseLife();
+  updateHUD();
+  if (state.lives <= 0) {
+    endGame('Out of lives');
+  }
+};
+
+const wordSpawner = new WordSpawner(playfield, state, handleMiss);
+const activeWordTracker = new ActiveWordTracker(playfield);
+
 const loadData = async () => {
   try {
     const [wRes, lRes] = await Promise.all([fetch('/data/words.json'), fetch('/data/lessons.json')]);
@@ -167,56 +187,17 @@ const updateHUD = () => {
 };
 
 const clearFalling = () => {
-  state.falling.forEach(({ el }) => el.remove());
-  state.falling = [];
+  wordSpawner.clearAllWords();
 };
 
 const updateWordPositions = () => {
   if (state.falling.length > 1) {
-    updateActiveWord();
-  }
-};
-
-const spawnInterval = () => Math.max(MIN_SPAWN, BASE_SPAWN - (state.level - 1) * 180);
-const fallDuration = () => Math.max(MIN_FALL, BASE_FALL - (state.level - 1) * 900);
-
-const handleMiss = (el) => {
-  if (el.dataset.removed === '1') return;
-  if (!state.running) return;
-  const idx = state.falling.findIndex((f) => f.el === el);
-  if (idx === -1) return;
-  el.dataset.removed = '1';
-  el.remove();
-  state.falling.splice(idx, 1);
-  scoreManager.loseLife();
-  updateHUD();
-  if (state.lives <= 0) {
-    endGame('Out of lives');
+    activeWordTracker.update(state.falling);
   }
 };
 
 const updateActiveWord = () => {
-  // Remove active class from all words
-  state.falling.forEach(f => f.el.classList.remove('active-word'));
-  
-  if (state.falling.length === 0) return;
-  
-  // Find the word closest to bottom (highest position)
-  let activeEntry = state.falling[0];
-  const playfieldRect = playfield.getBoundingClientRect();
-  
-  state.falling.forEach(entry => {
-    const rect = entry.el.getBoundingClientRect();
-    if (rect.top > playfieldRect.top) { // Only consider words that have started falling
-      const entryBottom = rect.bottom;
-      const activeBottom = activeEntry.el.getBoundingClientRect().bottom;
-      if (entryBottom > activeBottom) {
-        activeEntry = entry;
-      }
-    }
-  });
-  
-  activeEntry.el.classList.add('active-word');
+  activeWordTracker.update(state.falling);
 };
 
 const highlightWordProgress = (el, progress) => {
@@ -280,62 +261,24 @@ const setRng = () => {
 };
 
 const spawnWord = () => {
-  if (!state.running || !state.activeWords.length) return;
-  if (state.falling.length >= 3) return; // Allow up to 3 words on screen
-
-  let word;
-  const lesson = state.lessons[state.currentLessonIndex];
-  if (lesson?.config?.enforceAlternate) {
-    const targetThumb = state.nextThumb || 'left';
-    const pool = targetThumb === 'left' ? state.leftWords : state.rightWords;
-    if (pool && pool.length) {
-      word = pool[Math.floor(state.rng() * pool.length)];
-      state.nextThumb = targetThumb === 'left' ? 'right' : 'left';
-    } else {
-      word = state.activeWords[Math.floor(state.rng() * state.activeWords.length)];
-    }
-  } else {
-    word = state.activeWords[Math.floor(state.rng() * state.activeWords.length)];
-  }
-
-  const el = document.createElement('div');
-  el.className = 'word';
-  el.textContent = word;
-  el.dataset.originalWord = word;
-  el.dataset.removed = '0';
-  el.dataset.typedProgress = '';
-
-  // Add thumb indicator to first letter
-  const firstLetter = word[0];
-  const isLeft = leftLetters.has(firstLetter.toLowerCase());
-  const firstLetterClass = isLeft ? 'first-letter-left' : 'first-letter-right';
-  el.innerHTML = `<span class="${firstLetterClass}">${firstLetter}</span>${word.substring(1)}`;
-
-  // Find safe position with spacing
-  const estimatedWidth = word.length * 12 + 28; // Rough estimate: ~12px per char + padding
-  const left = findSafeSpawnPosition(estimatedWidth, state.falling, playfield, state.rng);
-  el.style.left = `${left}px`;
-  el.style.setProperty('--fall-duration', `${fallDuration()}ms`);
-
-  const missHandler = () => handleMiss(el);
-  el.addEventListener('animationend', missHandler);
-  playfield.appendChild(el);
-  state.falling.push({ word: word.toLowerCase(), el, missHandler });
-
-  // Set the first spawned word as active
-  if (state.falling.length === 1) {
-    updateActiveWord();
+  const entry = wordSpawner.spawn();
+  if (entry && state.falling.length === 1) {
+    activeWordTracker.update(state.falling);
   }
 };
 
 const restartSpawnTimer = () => {
-  clearInterval(state.spawnTimer);
-  state.spawnTimer = setInterval(spawnWord, spawnInterval());
+  wordSpawner.stopTimer();
+  wordSpawner.startTimer((entry) => {
+    if (state.falling.length === 1) {
+      activeWordTracker.update(state.falling);
+    }
+  });
 };
 
 const showLevelUpPause = () => {
   state.running = false;
-  clearInterval(state.spawnTimer);
+  wordSpawner.stopTimer();
   clearInterval(state.rampTimer);
   overlayManager.showLevelUpPause(state.level);
 };
@@ -353,7 +296,7 @@ const checkUnlock = () => {
 
 const endGame = (reason = 'Game over') => {
   state.running = false;
-  clearInterval(state.spawnTimer);
+  wordSpawner.stopTimer();
   clearInterval(state.rampTimer);
   clearInterval(state.positionTimer);
   clearFalling();
@@ -372,7 +315,7 @@ const resetGame = () => {
   state.combo = 0;
   state.maxCombo = 0;
   state.nextThumb = null;
-  clearInterval(state.spawnTimer);
+  wordSpawner.stopTimer();
   clearInterval(state.rampTimer);
   clearInterval(state.positionTimer);
   clearFalling();
@@ -416,7 +359,7 @@ const startGame = async () => {
   clearInterval(state.rampTimer);
   clearInterval(state.positionTimer);
   state.rampTimer = setInterval(levelUp, RAMP_MS);
-  state.positionTimer = setInterval(updateWordPositions, 100); // Update active word every 100ms
+  state.positionTimer = setInterval(updateWordPositions, 100);
 };
 
 hiddenInput.addEventListener('input', () => {
