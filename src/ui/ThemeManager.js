@@ -14,7 +14,13 @@ export class ThemeManager {
       document.documentElement.style.setProperty(k, v);
     });
     // Update body class for theme-specific CSS
-    document.body.className = `theme-${key}`;
+    // Remove any existing theme-* classes, then add the new theme class
+    Array.from(document.body.classList).forEach(className => {
+      if (className.startsWith('theme-')) {
+        document.body.classList.remove(className);
+      }
+    });
+    document.body.classList.add(`theme-${key}`);
     this.currentTheme = key;
     saveTheme(key);
     if (this.themeInfo) {
