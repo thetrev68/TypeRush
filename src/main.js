@@ -1,6 +1,11 @@
 import './style.css';
 import { BASE_FALL, BASE_SPAWN, RAMP_MS, MIN_FALL, MIN_SPAWN, leftLetters, rightLetters, defaultLessons, defaultWords } from './config/constants.js';
 import { themes } from './config/themes.js';
+import { getExpectedThumb, inferThumbFromChar } from './utils/thumbDetection.js';
+import { createSeededRng } from './utils/rng.js';
+import { saveProgress, loadUnlockedLessons, loadHighScore, saveHighScore, loadTheme, saveTheme } from './utils/storage.js';
+import { setupFocusManagement } from './utils/focus.js';
+import { findSafeSpawnPosition } from './utils/positioning.js';
 
 const root = document.querySelector('#app');
 
@@ -93,17 +98,7 @@ const wpmVal = document.getElementById('wpmVal');
 const accuracyVal = document.getElementById('accuracyVal');
 const comboVal = document.getElementById('comboVal');
 
-let currentThumbSide = null;
-let currentTheme = localStorage.getItem('tr_theme') || 'default';
-
-const getExpectedThumb = (word) => (leftLetters.has(word[0].toLowerCase()) ? 'left' : 'right');
-
-const inferThumbFromChar = (char) => {
-  if (!char) return null;
-  const lower = char.toLowerCase();
-  if (!/[a-z]/.test(lower)) return null;
-  return leftLetters.has(lower) ? 'left' : 'right';
-};
+let currentTheme = loadTheme();
 
 const state = {
   words: [],
@@ -112,11 +107,11 @@ const state = {
   leftWords: [],
   rightWords: [],
   nextThumb: null,
-  unlockedLessons: JSON.parse(localStorage.getItem('tr_unlocked')) || [0],
+  unlockedLessons: loadUnlockedLessons(),
   currentLessonIndex: 0,
   running: false,
   score: 0,
-  highScore: parseInt(localStorage.getItem('tr_highscore') || '0', 10),
+  highScore: loadHighScore(),
   lives: 5,
   level: 1,
   spawnTimer: null,
@@ -132,31 +127,7 @@ const state = {
   rng: Math.random,
 };
 
-const saveProgress = () => {
-  localStorage.setItem('tr_unlocked', JSON.stringify(state.unlockedLessons));
-};
-
-const focusInput = (e) => {
-  // Don't steal focus from select elements
-  if (e && e.target && (e.target.tagName === 'SELECT' || e.target.closest('.lesson-select'))) {
-    return;
-  }
-  hiddenInput.focus({ preventScroll: true });
-  hiddenInput.setSelectionRange(hiddenInput.value.length, hiddenInput.value.length);
-};
-
-['click', 'touchstart'].forEach((evt) => {
-  document.addEventListener(evt, focusInput, { passive: true });
-});
-
-document.addEventListener(
-  'touchstart',
-  (e) => {
-    const x = e.touches[0].clientX;
-    currentThumbSide = x < window.innerWidth / 2 ? 'left' : 'right';
-  },
-  { passive: true }
-);
+const { focusInput, getCurrentThumbSide, setCurrentThumbSide } = setupFocusManagement(hiddenInput);
 
 const applyTheme = (key) => {
   const theme = themes[key] || themes.default;
@@ -166,7 +137,7 @@ const applyTheme = (key) => {
   // Update body class for theme-specific CSS
   document.body.className = `theme-${key}`;
   currentTheme = key;
-  localStorage.setItem('tr_theme', key);
+  saveTheme(key);
   if (themeInfo) {
     themeInfo.textContent = `Theme: ${theme.name}`;
   }
@@ -387,7 +358,7 @@ const popWord = (entry, { breakCombo = false, awardScore = true } = {}) => {
     state.score += base * mult;
     if (state.score > state.highScore) {
       state.highScore = state.score;
-      localStorage.setItem('tr_highscore', state.highScore.toString());
+      saveHighScore(state.highScore);
       celebrateHighScore();
     }
   }
@@ -408,57 +379,8 @@ const popWord = (entry, { breakCombo = false, awardScore = true } = {}) => {
   }, 120);
 };
 
-const mulberry32 = (a) => {
-  return function () {
-    let t = (a += 0x6d2b79f5);
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-};
-
 const setRng = () => {
-  if (!state.dailyMode) {
-    state.rng = Math.random;
-    return;
-  }
-  const seedStr = new Date().toISOString().slice(0, 10);
-  let hash = 1779033703 ^ seedStr.length;
-  for (let i = 0; i < seedStr.length; i++) {
-    hash = Math.imul(hash ^ seedStr.charCodeAt(i), 3432918353);
-    hash = (hash << 13) | (hash >>> 19);
-  }
-  state.rng = mulberry32(hash >>> 0);
-};
-
-const findSafeSpawnPosition = (wordWidth) => {
-  const maxLeft = Math.max(0, playfield.clientWidth - wordWidth - 20);
-  const minSpacing = 120; // Minimum pixels between words
-  let attempts = 0;
-  let left;
-
-  while (attempts < 10) {
-    left = state.rng() * maxLeft;
-    let isSafe = true;
-
-    // Check if this position overlaps with any existing word
-    for (const entry of state.falling) {
-      if (entry.el.dataset.removed === '1') continue;
-      const existingLeft = parseFloat(entry.el.style.left);
-      const distance = Math.abs(left - existingLeft);
-
-      if (distance < minSpacing) {
-        isSafe = false;
-        break;
-      }
-    }
-
-    if (isSafe) return left;
-    attempts++;
-  }
-
-  // If we can't find a safe spot after 10 tries, use the farthest position
-  return left;
+  state.rng = createSeededRng(state.dailyMode);
 };
 
 const spawnWord = () => {
@@ -495,7 +417,7 @@ const spawnWord = () => {
 
   // Find safe position with spacing
   const estimatedWidth = word.length * 12 + 28; // Rough estimate: ~12px per char + padding
-  const left = findSafeSpawnPosition(estimatedWidth);
+  const left = findSafeSpawnPosition(estimatedWidth, state.falling, playfield, state.rng);
   el.style.left = `${left}px`;
   el.style.setProperty('--fall-duration', `${fallDuration()}ms`);
 
@@ -542,7 +464,7 @@ const checkUnlock = () => {
   if (nextIdx < state.lessons.length && (acc >= 80 || wpm >= 20 || wordsTyped >= 10)) {
     if (!state.unlockedLessons.includes(nextIdx)) {
       state.unlockedLessons.push(nextIdx);
-      saveProgress();
+      saveProgress(state.unlockedLessons);
       renderLessonPicker();
       return `Next lesson unlocked! (WPM: ${wpm}, Acc: ${Math.round(acc)}%)`;
     }
@@ -627,7 +549,7 @@ hiddenInput.addEventListener('input', () => {
   const lastChar = val.slice(-1);
   const detectedThumb = inferThumbFromChar(lastChar);
   if (detectedThumb) {
-    currentThumbSide = detectedThumb;
+    setCurrentThumbSide(detectedThumb);
   }
   if (!val) return;
   if (val.length > 20) {
@@ -649,7 +571,7 @@ hiddenInput.addEventListener('input', () => {
       // Check if word is complete
       if (val === activeEntry.word) {
         const expected = getExpectedThumb(activeEntry.word);
-        const actualThumb = detectedThumb || currentThumbSide;
+        const actualThumb = detectedThumb || getCurrentThumbSide();
         const thumbKnown = Boolean(actualThumb);
         let breakCombo = false;
         
