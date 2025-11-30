@@ -8,14 +8,14 @@ A lightweight, offline-capable PWA designed to help you master two-thumb typing 
 
 ## Features
 
-- **🎮 Engaging Gameplay**: Falling-word mechanic keeps practice fun and challenging
-- **👍 Two-Thumb Training**: Visual feedback teaches proper left/right thumb usage
-- **📱 PWA-First**: Install on your home screen, works offline after first load
-- **🎓 Progressive Lessons**: Six structured lessons from beginner to advanced
-- **📊 Real-Time Metrics**: Track WPM, accuracy, combos, and high scores
-- **🎨 Four Themes**: Default, Space, Ocean, and Racing visual styles
-- **🌙 Daily Challenge**: Seeded randomization for consistent daily runs
-- **⚡ Ultra-Lightweight**: < 8 kB gzipped (excluding word data)
+- **Engaging Gameplay**: Falling-word mechanic keeps practice fun and challenging
+- **Two-Thumb Training**: Visual feedback teaches proper left/right thumb usage
+- **PWA-First**: Install on your home screen, works offline after first load
+- **Progressive Lessons**: Six structured lessons from beginner to advanced
+- **Real-Time Metrics**: Track WPM, accuracy, combos, and high scores
+- **Four Themes**: Default, Space, Ocean, and Racing visual styles
+- **Daily Challenge**: Seeded randomization for consistent daily runs
+- **Ultra-Lightweight**: < 8 kB gzipped (excluding word data)
 
 ## Quick Start
 

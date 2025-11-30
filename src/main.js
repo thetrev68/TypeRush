@@ -453,8 +453,7 @@ const popWord = (entry, { breakCombo = false, awardScore = true } = {}) => {
   entry.el.dataset.removed = '1';
   entry.el.style.animationPlayState = 'paused';
   entry.el.classList.add('popped');
-  setTimeout(() => entry.el.remove(), 120);
-  state.falling.splice(idx, 1);
+
   if (breakCombo) state.combo = 0;
   if (awardScore) {
     const base = Math.max(5, entry.word.length);
@@ -471,9 +470,16 @@ const popWord = (entry, { breakCombo = false, awardScore = true } = {}) => {
   state.recentWords.push({ time: now, chars: entry.word.length });
   if (state.recentWords.length > 10) state.recentWords.shift();
   updateHUD();
-  
-  // Update active word after popping
-  updateActiveWord();
+
+  // Remove after animation completes
+  setTimeout(() => {
+    entry.el.remove();
+    const currentIdx = state.falling.indexOf(entry);
+    if (currentIdx !== -1) {
+      state.falling.splice(currentIdx, 1);
+      updateActiveWord();
+    }
+  }, 120);
 };
 
 const mulberry32 = (a) => {
@@ -497,6 +503,36 @@ const setRng = () => {
     hash = (hash << 13) | (hash >>> 19);
   }
   state.rng = mulberry32(hash >>> 0);
+};
+
+const findSafeSpawnPosition = (wordWidth) => {
+  const maxLeft = Math.max(0, playfield.clientWidth - wordWidth - 20);
+  const minSpacing = 120; // Minimum pixels between words
+  let attempts = 0;
+  let left;
+
+  while (attempts < 10) {
+    left = state.rng() * maxLeft;
+    let isSafe = true;
+
+    // Check if this position overlaps with any existing word
+    for (const entry of state.falling) {
+      if (entry.el.dataset.removed === '1') continue;
+      const existingLeft = parseFloat(entry.el.style.left);
+      const distance = Math.abs(left - existingLeft);
+
+      if (distance < minSpacing) {
+        isSafe = false;
+        break;
+      }
+    }
+
+    if (isSafe) return left;
+    attempts++;
+  }
+
+  // If we can't find a safe spot after 10 tries, use the farthest position
+  return left;
 };
 
 const spawnWord = () => {
@@ -524,21 +560,24 @@ const spawnWord = () => {
   el.dataset.originalWord = word;
   el.dataset.removed = '0';
   el.dataset.typedProgress = '';
-  
+
   // Add thumb indicator to first letter
   const firstLetter = word[0];
   const isLeft = leftLetters.has(firstLetter.toLowerCase());
   const firstLetterClass = isLeft ? 'first-letter-left' : 'first-letter-right';
   el.innerHTML = `<span class="${firstLetterClass}">${firstLetter}</span>${word.substring(1)}`;
-  const maxLeft = Math.max(0, playfield.clientWidth - 80);
-  const left = state.rng() * maxLeft;
+
+  // Find safe position with spacing
+  const estimatedWidth = word.length * 12 + 28; // Rough estimate: ~12px per char + padding
+  const left = findSafeSpawnPosition(estimatedWidth);
   el.style.left = `${left}px`;
   el.style.setProperty('--fall-duration', `${fallDuration()}ms`);
+
   const missHandler = () => handleMiss(el);
   el.addEventListener('animationend', missHandler);
   playfield.appendChild(el);
   state.falling.push({ word: word.toLowerCase(), el, missHandler });
-  
+
   // Set the first spawned word as active
   if (state.falling.length === 1) {
     updateActiveWord();
@@ -550,17 +589,31 @@ const restartSpawnTimer = () => {
   state.spawnTimer = setInterval(spawnWord, spawnInterval());
 };
 
+const showLevelUpPause = () => {
+  state.running = false;
+  clearInterval(state.spawnTimer);
+  clearInterval(state.rampTimer);
+  overlayTitle.textContent = `Level ${state.level} Complete!`;
+  overlayMsg.textContent = 'Take a quick break. Tap Play to continue.';
+  overlay.classList.remove('hidden');
+  overlayRestart.textContent = 'Continue';
+};
+
 const levelUp = () => {
   state.level += 1;
   updateHUD();
   restartSpawnTimer();
+  showLevelUpPause();
 };
 
 const checkUnlock = () => {
   const acc = state.totalThumbs ? (state.correctThumbs / state.totalThumbs) * 100 : 100;
   const wpm = calculateWPM();
   const nextIdx = state.currentLessonIndex + 1;
-  if (acc >= 95 && wpm >= 30 && nextIdx < state.lessons.length) {
+  const wordsTyped = state.recentWords.length;
+
+  // Unlock next lesson if: 80% accuracy OR 20 WPM OR typed 10+ words
+  if (nextIdx < state.lessons.length && (acc >= 80 || wpm >= 20 || wordsTyped >= 10)) {
     if (!state.unlockedLessons.includes(nextIdx)) {
       state.unlockedLessons.push(nextIdx);
       saveProgress();
@@ -730,11 +783,19 @@ restartBtn.addEventListener('click', () => {
 });
 
 overlayRestart.addEventListener('click', () => {
+  overlay.classList.add('hidden');
+  overlayRestart.textContent = 'Play';
+
   if (!state.running) {
-    startGame();
-  } else {
-    resetGame();
-    startGame();
+    state.running = true;
+    spawnWord();
+    restartSpawnTimer();
+    state.rampTimer = setInterval(levelUp, RAMP_MS);
+    state.positionTimer = setInterval(updateWordPositions, 100);
+    hiddenInput.value = '';
+    focusInput();
+    startBtn.disabled = true;
+    restartBtn.disabled = false;
   }
 });
 
