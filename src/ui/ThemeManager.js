@@ -2,9 +2,10 @@ import { themes } from '../config/themes.js';
 import { loadTheme, saveTheme } from '../utils/storage.js';
 
 export class ThemeManager {
-  constructor(themePicker, themeInfo) {
+  constructor(themePicker, themeInfo, audioManager) {
     this.themePicker = themePicker;
     this.themeInfo = themeInfo;
+    this.audioManager = audioManager;
     this.currentTheme = loadTheme();
   }
 
@@ -25,6 +26,11 @@ export class ThemeManager {
     saveTheme(key);
     if (this.themeInfo) {
       this.themeInfo.textContent = `Theme: ${theme.name}`;
+    }
+
+    // Update background music theme
+    if (this.audioManager) {
+      this.audioManager.setMusicTheme(key);
     }
   }
 

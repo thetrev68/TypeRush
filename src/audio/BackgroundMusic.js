@@ -1,5 +1,7 @@
+import { themeMusicProfiles } from './themeMusicProfiles.js';
+
 /**
- * BackgroundMusic - Generates a simple looping melody using Web Audio API
+ * BackgroundMusic - Generates theme-specific looping melodies using Web Audio API
  */
 export class BackgroundMusic {
   constructor() {
@@ -8,6 +10,8 @@ export class BackgroundMusic {
     this.isPlaying = false;
     this.masterGain = null;
     this.loopTimeout = null;
+    this.currentTheme = 'default';
+    this.lfoNode = null;  // For space theme vibrato
   }
 
   /**
@@ -27,19 +31,48 @@ export class BackgroundMusic {
   }
 
   /**
-   * Play a single note
+   * Play a single note with theme-specific characteristics
    */
-  playNote(frequency, startTime, duration, volume = 0.15) {
+  playNote(frequency, startTime, duration, volume, profile) {
     if (!this.audioContext) return;
 
     const osc = this.audioContext.createOscillator();
     const gain = this.audioContext.createGain();
 
-    osc.type = 'triangle';
+    osc.type = profile.waveType;
     osc.frequency.value = frequency;
 
+    // Space theme: Add LFO for vibrato effect
+    if (profile.useLFO) {
+      const lfo = this.audioContext.createOscillator();
+      const lfoGain = this.audioContext.createGain();
+
+      lfo.type = 'sine';
+      lfo.frequency.value = 5; // 5 Hz vibrato
+      lfoGain.gain.value = 8;  // Vibrato depth
+
+      lfo.connect(lfoGain);
+      lfoGain.connect(osc.frequency);
+
+      lfo.start(startTime);
+      lfo.stop(startTime + duration);
+    }
+
     gain.gain.value = 0;
-    osc.connect(gain);
+
+    // Ocean theme: Add filter for watery sound
+    if (profile.useFilter) {
+      const filter = this.audioContext.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = 2000;
+      filter.Q.value = 1;
+
+      osc.connect(filter);
+      filter.connect(gain);
+    } else {
+      osc.connect(gain);
+    }
+
     gain.connect(this.masterGain);
 
     // ADSR envelope
@@ -59,56 +92,62 @@ export class BackgroundMusic {
   }
 
   /**
-   * Play the melody loop
+   * Play the melody loop for current theme
    */
   playLoop() {
     if (!this.audioContext || !this.isPlaying) return;
 
+    const profile = themeMusicProfiles[this.currentTheme];
     const now = this.audioContext.currentTime;
-    const beatDuration = 0.3; // 200 BPM
-
-    // Simple upbeat melody in C major pentatonic (C-D-E-G-A)
-    // 16-beat phrase
-    const melody = [
-      { note: 523.25, beat: 0, duration: 1 },    // C5
-      { note: 587.33, beat: 1, duration: 1 },    // D5
-      { note: 659.25, beat: 2, duration: 1 },    // E5
-      { note: 783.99, beat: 3, duration: 1 },    // G5
-
-      { note: 880.00, beat: 4, duration: 2 },    // A5
-      { note: 783.99, beat: 6, duration: 1 },    // G5
-      { note: 659.25, beat: 7, duration: 1 },    // E5
-
-      { note: 587.33, beat: 8, duration: 1 },    // D5
-      { note: 659.25, beat: 9, duration: 1 },    // E5
-      { note: 523.25, beat: 10, duration: 2 },   // C5
-
-      { note: 659.25, beat: 12, duration: 1 },   // E5
-      { note: 783.99, beat: 13, duration: 1 },   // G5
-      { note: 880.00, beat: 14, duration: 2 }    // A5
-    ];
-
-    // Bass line (one octave lower)
-    const bass = [
-      { note: 261.63, beat: 0, duration: 4 },    // C4
-      { note: 392.00, beat: 4, duration: 4 },    // G4
-      { note: 329.63, beat: 8, duration: 4 },    // E4
-      { note: 293.66, beat: 12, duration: 4 }    // D4
-    ];
+    const beatDuration = profile.tempo;
 
     // Play melody
-    melody.forEach(({ note, beat, duration }) => {
-      this.playNote(note, now + (beat * beatDuration), duration * beatDuration, 0.1);
+    profile.melody.forEach(({ note, beat, duration }) => {
+      const frequency = profile.scale[note];
+      this.playNote(
+        frequency,
+        now + (beat * beatDuration),
+        duration * beatDuration,
+        profile.volume,
+        profile
+      );
     });
 
     // Play bass
-    bass.forEach(({ note, beat, duration }) => {
-      this.playNote(note, now + (beat * beatDuration), duration * beatDuration, 0.08);
+    profile.bass.forEach(({ freq, beat, duration }) => {
+      this.playNote(
+        freq,
+        now + (beat * beatDuration),
+        duration * beatDuration,
+        profile.bassVolume,
+        profile
+      );
     });
 
-    // Schedule next loop
-    const loopDuration = 16 * beatDuration; // 16 beats
+    // Schedule next loop (16 beats for all themes)
+    const loopDuration = 16 * beatDuration;
     this.loopTimeout = setTimeout(() => this.playLoop(), loopDuration * 1000);
+  }
+
+  /**
+   * Set the current theme
+   */
+  setTheme(theme) {
+    const wasPlaying = this.isPlaying;
+    const currentVolume = this.masterGain ? this.masterGain.gain.value : 0.4;
+
+    // Stop current music
+    if (wasPlaying) {
+      this.stop();
+    }
+
+    // Update theme
+    this.currentTheme = theme in themeMusicProfiles ? theme : 'default';
+
+    // Restart music with new theme if it was playing
+    if (wasPlaying) {
+      this.start(currentVolume);
+    }
   }
 
   /**

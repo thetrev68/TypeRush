@@ -100,6 +100,13 @@ export class AudioManager {
   }
 
   /**
+   * Set the music theme
+   */
+  setMusicTheme(theme) {
+    this.music.setTheme(theme);
+  }
+
+  /**
    * Update settings
    */
   updateSettings(newSettings) {
