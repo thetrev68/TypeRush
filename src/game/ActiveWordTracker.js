@@ -14,17 +14,22 @@ export class ActiveWordTracker {
     if (falling.length === 0) return null;
 
     // Find the word closest to bottom (highest position)
-    let activeEntry = falling[0];
+    let activeEntry = null;
     const playfieldRect = this.playfield.getBoundingClientRect();
 
     falling.forEach(entry => {
       if (!entry.el) return;
       const rect = entry.el.getBoundingClientRect();
       if (rect.top > playfieldRect.top) {
-        const entryBottom = rect.bottom;
-        const activeBottom = activeEntry.el.getBoundingClientRect().bottom;
-        if (entryBottom > activeBottom) {
+        // Initialize activeEntry with the first valid entry
+        if (!activeEntry) {
           activeEntry = entry;
+        } else {
+          const entryBottom = rect.bottom;
+          const activeBottom = activeEntry.el.getBoundingClientRect().bottom;
+          if (entryBottom > activeBottom) {
+            activeEntry = entry;
+          }
         }
       }
     });
