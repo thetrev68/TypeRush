@@ -1,11 +1,6 @@
 import './style.css';
-import { BASE_FALL, BASE_SPAWN, RAMP_MS, MIN_FALL, MIN_SPAWN, leftLetters, rightLetters, defaultLessons, defaultWords } from './config/constants.js';
-import { themes } from './config/themes.js';
-import { getExpectedThumb, inferThumbFromChar } from './utils/thumbDetection.js';
-import { createSeededRng } from './utils/rng.js';
-import { saveProgress, loadUnlockedLessons, loadHighScore, saveHighScore, loadTheme, saveTheme } from './utils/storage.js';
+import { defaultLessons, defaultWords } from './config/constants.js';
 import { setupFocusManagement } from './utils/focus.js';
-import { findSafeSpawnPosition } from './utils/positioning.js';
 import { MetricsCalculator } from './scoring/MetricsCalculator.js';
 import { ScoreManager } from './scoring/ScoreManager.js';
 import { ProgressTracker } from './scoring/ProgressTracker.js';
@@ -15,6 +10,10 @@ import { LessonPicker } from './ui/LessonPicker.js';
 import { OverlayManager } from './ui/OverlayManager.js';
 import { WordSpawner } from './game/WordSpawner.js';
 import { ActiveWordTracker } from './game/ActiveWordTracker.js';
+import { GameState } from './core/GameState.js';
+import { GameLoop } from './core/GameLoop.js';
+import { GameLifecycle } from './core/GameLifecycle.js';
+import { InputHandler } from './game/InputHandler.js';
 
 const root = document.querySelector('#app');
 
@@ -107,69 +106,47 @@ const wpmVal = document.getElementById('wpmVal');
 const accuracyVal = document.getElementById('accuracyVal');
 const comboVal = document.getElementById('comboVal');
 
-const state = {
-  words: [],
-  lessons: [],
-  activeWords: [],
-  leftWords: [],
-  rightWords: [],
-  nextThumb: null,
-  unlockedLessons: loadUnlockedLessons(),
-  currentLessonIndex: 0,
-  running: false,
-  score: 0,
-  highScore: loadHighScore(),
-  lives: 5,
-  level: 1,
-  spawnTimer: null,
-  rampTimer: null,
-  positionTimer: null,
-  falling: [],
-  correctThumbs: 0,
-  totalThumbs: 0,
-  recentWords: [],
-  combo: 0,
-  maxCombo: 0,
-  dailyMode: false,
-  rng: Math.random,
-};
+const gameState = new GameState();
 
-const { focusInput, getCurrentThumbSide, setCurrentThumbSide } = setupFocusManagement(hiddenInput);
+const { focusInput } = setupFocusManagement(hiddenInput);
 
 const metricsCalc = new MetricsCalculator();
-const scoreManager = new ScoreManager(state);
-const progressTracker = new ProgressTracker(state);
+const scoreManager = new ScoreManager(gameState);
+const progressTracker = new ProgressTracker(gameState, gameState.lessons);
 const hud = new HUD({ scoreVal, bestVal, livesVal, speedVal, wpmVal, accuracyVal, comboVal }, metricsCalc);
 const themeManager = new ThemeManager(themePicker, themeInfo);
-const lessonPickerManager = new LessonPicker(lessonPicker, lessonInfo, state);
+const lessonPickerManager = new LessonPicker(lessonPicker, lessonInfo, gameState);
 const overlayManager = new OverlayManager(overlay, overlayTitle, overlayMsg, overlayRestart);
 
 const handleMiss = (el) => {
   if (el.dataset.removed === '1') return;
-  if (!state.running) return;
-  const idx = state.falling.findIndex((f) => f.el === el);
+  if (!gameState.running) return;
+  const idx = gameState.falling.findIndex((f) => f.el === el);
   if (idx === -1) return;
   el.dataset.removed = '1';
   el.remove();
-  state.falling.splice(idx, 1);
+  gameState.falling.splice(idx, 1);
   scoreManager.loseLife();
   updateHUD();
-  if (state.lives <= 0) {
-    endGame('Out of lives');
+  if (gameState.lives <= 0) {
+    gameLifecycle.end('Out of lives', lessonPicker);
   }
 };
 
-const wordSpawner = new WordSpawner(playfield, state, handleMiss);
+const wordSpawner = new WordSpawner(playfield, gameState, handleMiss);
 const activeWordTracker = new ActiveWordTracker(playfield);
+const gameLoop = new GameLoop(gameState, wordSpawner, overlayManager, hud, activeWordTracker);
+const gameLifecycle = new GameLifecycle(gameState, gameLoop, wordSpawner, hud, overlayManager, lessonPickerManager, progressTracker, focusInput);
+const inputHandler = new InputHandler(hiddenInput, gameState, scoreManager, hud, activeWordTracker);
 
 const loadData = async () => {
   try {
     const [wRes, lRes] = await Promise.all([fetch('/data/words.json'), fetch('/data/lessons.json')]);
-    state.words = (await wRes.json()).filter(Boolean);
-    state.lessons = await lRes.json();
+    gameState.words = (await wRes.json()).filter(Boolean);
+    gameState.lessons = await lRes.json();
   } catch {
-    state.words = defaultWords;
-    state.lessons = defaultLessons;
+    gameState.words = defaultWords;
+    gameState.lessons = defaultLessons;
   }
 
   lessonPickerManager.render();
@@ -178,271 +155,25 @@ const loadData = async () => {
   lessonPickerManager.setupEventListeners();
 };
 
-const renderLessonPicker = () => {
-  lessonPickerManager.render();
-};
-
 const updateHUD = () => {
-  hud.update(state);
+  hud.update(gameState);
 };
 
-const clearFalling = () => {
-  wordSpawner.clearAllWords();
-};
 
-const updateWordPositions = () => {
-  if (state.falling.length > 1) {
-    activeWordTracker.update(state.falling);
-  }
-};
 
-const updateActiveWord = () => {
-  activeWordTracker.update(state.falling);
-};
-
-const highlightWordProgress = (el, progress) => {
-  const word = el.dataset.originalWord || el.textContent;
-  el.dataset.originalWord = word; // Store original word for reference
-  
-  if (progress.length === 0) {
-    // Add thumb indicator to first letter
-    const firstLetter = word[0];
-    const isLeft = leftLetters.has(firstLetter.toLowerCase());
-    const firstLetterClass = isLeft ? 'first-letter-left' : 'first-letter-right';
-    el.innerHTML = `<span class="${firstLetterClass}">${firstLetter}</span>${word.substring(1)}`;
-    return;
-  }
-  
-  const typed = word.substring(0, progress.length);
-  const remaining = word.substring(progress.length);
-  const firstLetter = word[0];
-  const isLeft = leftLetters.has(firstLetter.toLowerCase());
-  const firstLetterClass = isLeft ? 'first-letter-left' : 'first-letter-right';
-  
-  if (progress.length === 1) {
-    el.innerHTML = `<span class="typed ${firstLetterClass}">${typed}</span>${remaining}`;
-  } else {
-    el.innerHTML = `<span class="typed">${typed}</span>${remaining}`;
-  }
-};
-
-const popWord = (entry, { breakCombo = false, awardScore = true } = {}) => {
-  const idx = state.falling.indexOf(entry);
-  if (idx === -1) return;
-  if (entry.missHandler) {
-    entry.el.removeEventListener('animationend', entry.missHandler);
-  }
-  entry.el.dataset.removed = '1';
-  entry.el.style.animationPlayState = 'paused';
-  entry.el.classList.add('popped');
-
-  if (awardScore) {
-    scoreManager.awardScore(entry.word.length, state.combo, breakCombo);
-  } else if (breakCombo) {
-    scoreManager.breakCombo();
-  }
-
-  scoreManager.trackWordTyped(entry.word.length);
-  updateHUD();
-
-  // Remove after animation completes
-  setTimeout(() => {
-    entry.el.remove();
-    const currentIdx = state.falling.indexOf(entry);
-    if (currentIdx !== -1) {
-      state.falling.splice(currentIdx, 1);
-      updateActiveWord();
-    }
-  }, 120);
-};
-
-const setRng = () => {
-  state.rng = createSeededRng(state.dailyMode);
-};
-
-const spawnWord = () => {
-  const entry = wordSpawner.spawn();
-  if (entry && state.falling.length === 1) {
-    activeWordTracker.update(state.falling);
-  }
-};
-
-const restartSpawnTimer = () => {
-  wordSpawner.stopTimer();
-  wordSpawner.startTimer((entry) => {
-    if (state.falling.length === 1) {
-      activeWordTracker.update(state.falling);
-    }
-  });
-};
-
-const showLevelUpPause = () => {
-  state.running = false;
-  wordSpawner.stopTimer();
-  clearInterval(state.rampTimer);
-  overlayManager.showLevelUpPause(state.level);
-};
-
-const levelUp = () => {
-  state.level += 1;
-  updateHUD();
-  restartSpawnTimer();
-  showLevelUpPause();
-};
-
-const checkUnlock = () => {
-  return progressTracker.checkUnlock(renderLessonPicker);
-};
-
-const endGame = (reason = 'Game over') => {
-  state.running = false;
-  wordSpawner.stopTimer();
-  clearInterval(state.rampTimer);
-  clearInterval(state.positionTimer);
-  clearFalling();
-  const unlockMsg = checkUnlock();
-  overlayManager.showGameOver(unlockMsg);
-  lessonPicker.disabled = false;
-};
-
-const resetGame = () => {
-  state.score = 0;
-  state.lives = 5;
-  state.level = 1;
-  state.correctThumbs = 0;
-  state.totalThumbs = 0;
-  state.recentWords = [];
-  state.combo = 0;
-  state.maxCombo = 0;
-  state.nextThumb = null;
-  wordSpawner.stopTimer();
-  clearInterval(state.rampTimer);
-  clearInterval(state.positionTimer);
-  clearFalling();
-  updateHUD();
-  overlayManager.showReady();
-  lessonPicker.disabled = false;
-};
-
-const startGame = async () => {
-  const idx = parseInt(lessonPicker.value);
-  state.currentLessonIndex = idx;
-  state.activeWords = lessonPickerManager.filterWordsForLesson(state.lessons[idx], state.words);
-  state.leftWords = state.activeWords.filter((w) => getExpectedThumb(w) === 'left');
-  state.rightWords = state.activeWords.filter((w) => getExpectedThumb(w) === 'right');
-  state.nextThumb = state.lessons[idx]?.config?.enforceAlternate ? 'left' : null;
-
-  if (state.activeWords.length === 0) {
-    alert('No words found for this lesson configuration!');
-    return;
-  }
-
-  setRng();
-  state.running = true;
-  state.score = 0;
-  state.lives = 5;
-  state.level = state.lessons[idx].config.level || 1;
-  state.correctThumbs = 0;
-  state.totalThumbs = 0;
-  state.recentWords = [];
-  state.combo = 0;
-  state.maxCombo = 0;
-  clearFalling();
-  updateHUD();
-  overlayManager.hide();
-  lessonPicker.disabled = true;
-
-  hiddenInput.value = '';
-  focusInput();
-  spawnWord();
-  restartSpawnTimer();
-  clearInterval(state.rampTimer);
-  clearInterval(state.positionTimer);
-  state.rampTimer = setInterval(levelUp, RAMP_MS);
-  state.positionTimer = setInterval(updateWordPositions, 100);
-};
-
-hiddenInput.addEventListener('input', () => {
-  const val = hiddenInput.value.toLowerCase().replace(/[^a-z]/g, '');
-  const lastChar = val.slice(-1);
-  const detectedThumb = inferThumbFromChar(lastChar);
-  if (detectedThumb) {
-    setCurrentThumbSide(detectedThumb);
-  }
-  if (!val) return;
-  if (val.length > 20) {
-    hiddenInput.value = '';
-    return;
-  }
-
-  // Find active word for typing
-  const activeEl = document.querySelector('.word.active-word');
-  const activeEntry = state.falling.find(f => f.el === activeEl);
-  
-  if (activeEntry) {
-    // Check if the current input matches the start of the active word
-    if (activeEntry.word.startsWith(val)) {
-      // Correct partial input - update progress
-      activeEntry.el.dataset.typedProgress = val;
-      highlightWordProgress(activeEntry.el, val);
-      
-      // Check if word is complete
-      if (val === activeEntry.word) {
-        const expected = getExpectedThumb(activeEntry.word);
-        const actualThumb = detectedThumb || getCurrentThumbSide();
-        const thumbKnown = Boolean(actualThumb);
-        let breakCombo = false;
-        
-        // Mark captured immediately to avoid later misses
-        activeEntry.el.dataset.removed = '1';
-        activeEntry.el.style.animationPlayState = 'paused';
-        if (activeEntry.missHandler) {
-          activeEntry.el.removeEventListener('animationend', activeEntry.missHandler);
-        }
-        
-        if (thumbKnown) {
-          const correct = actualThumb === expected;
-          scoreManager.trackThumbAccuracy(correct);
-          if (correct) {
-            scoreManager.incrementCombo();
-          } else {
-            breakCombo = true;
-            scoreManager.breakCombo();
-          }
-          const flashClass = correct ? 'correct-thumb' : 'wrong-thumb';
-          const flashDuration = correct ? 420 : 480;
-          activeEntry.el.classList.add(flashClass);
-          setTimeout(() => activeEntry.el.classList.remove(flashClass), flashDuration);
-          setTimeout(() => popWord(activeEntry, { breakCombo, awardScore: true }), flashDuration);
-        } else {
-          scoreManager.incrementCombo();
-          popWord(activeEntry, { breakCombo: false, awardScore: true });
-        }
-        updateHUD();
-        hiddenInput.value = '';
-      }
-    } else {
-      // Wrong input - flash red but don't clear combo or immediately end game
-      activeEntry.el.classList.add('wrong-flash');
-      setTimeout(() => activeEntry.el.classList.remove('wrong-flash'), 200);
-      hiddenInput.value = '';
-    }
-  }
-});
+inputHandler.setupListener();
 
 overlayManager.setupRestartButton(async () => {
-  if (!state.running) {
+  if (!gameState.running) {
     // Starting fresh game
-    await startGame();
+    await gameLifecycle.start(hiddenInput, lessonPicker);
   } else {
     // Resuming from pause (level up)
     overlayManager.hide();
     overlayRestart.textContent = 'Play';
-    state.running = true;
-    spawnWord();
-    restartSpawnTimer();
-    state.rampTimer = setInterval(levelUp, RAMP_MS);
-    state.positionTimer = setInterval(updateWordPositions, 100);
+    gameState.running = true;
+    wordSpawner.spawn();
+    gameLoop.start();
     hiddenInput.value = '';
     focusInput();
   }
@@ -474,9 +205,8 @@ updateBadges();
 window.addEventListener('online', updateBadges);
 window.addEventListener('offline', updateBadges);
 
-setRng();
 loadData().then(() => {
-  resetGame();
+  gameLifecycle.reset(lessonPicker);
 });
 
 if ('serviceWorker' in navigator) {

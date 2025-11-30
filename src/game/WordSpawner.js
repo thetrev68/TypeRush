@@ -1,6 +1,5 @@
 import { MIN_SPAWN, BASE_SPAWN, MIN_FALL, BASE_FALL, leftLetters } from '../config/constants.js';
 import { findSafeSpawnPosition } from '../utils/positioning.js';
-import { getExpectedThumb } from '../utils/thumbDetection.js';
 
 export class WordSpawner {
   constructor(playfield, state, onMiss) {

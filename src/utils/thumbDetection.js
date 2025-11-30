@@ -1,4 +1,4 @@
-import { leftLetters, rightLetters } from '../config/constants.js';
+import { leftLetters } from '../config/constants.js';
 
 export const getExpectedThumb = (word) =>
   leftLetters.has(word[0].toLowerCase()) ? 'left' : 'right';
