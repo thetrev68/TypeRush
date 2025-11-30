@@ -6,6 +6,9 @@ import { createSeededRng } from './utils/rng.js';
 import { saveProgress, loadUnlockedLessons, loadHighScore, saveHighScore, loadTheme, saveTheme } from './utils/storage.js';
 import { setupFocusManagement } from './utils/focus.js';
 import { findSafeSpawnPosition } from './utils/positioning.js';
+import { MetricsCalculator } from './scoring/MetricsCalculator.js';
+import { ScoreManager } from './scoring/ScoreManager.js';
+import { ProgressTracker } from './scoring/ProgressTracker.js';
 
 const root = document.querySelector('#app');
 
@@ -129,6 +132,10 @@ const state = {
 
 const { focusInput, getCurrentThumbSide, setCurrentThumbSide } = setupFocusManagement(hiddenInput);
 
+const metricsCalc = new MetricsCalculator();
+const scoreManager = new ScoreManager(state);
+const progressTracker = new ProgressTracker(state);
+
 const applyTheme = (key) => {
   const theme = themes[key] || themes.default;
   Object.entries(theme.vars).forEach(([k, v]) => {
@@ -224,26 +231,15 @@ themePicker.addEventListener('touchstart', (e) => {
   e.stopPropagation();
 }, { passive: true });
 
-const calculateWPM = () => {
-  if (state.recentWords.length < 2) return 0;
-  const first = state.recentWords[0].time;
-  const last = state.recentWords[state.recentWords.length - 1].time;
-  const diffMin = (last - first) / 60000;
-  if (diffMin <= 0) return 0;
-  const totalChars = state.recentWords.reduce((sum, item) => sum + item.chars, 0);
-  const words = totalChars / 5;
-  return Math.round(words / diffMin);
-};
-
 const updateHUD = () => {
   scoreVal.textContent = state.score.toString();
   bestVal.textContent = state.highScore.toString();
   livesVal.textContent = `${state.lives}`;
   speedVal.textContent = `Lv ${state.level}`;
-  wpmVal.textContent = calculateWPM().toString();
-  const acc = state.totalThumbs ? Math.round((state.correctThumbs / state.totalThumbs) * 100) : 100;
+  wpmVal.textContent = metricsCalc.calculateWPM(state.recentWords).toString();
+  const acc = metricsCalc.calculateAccuracy(state.correctThumbs, state.totalThumbs);
   accuracyVal.textContent = `${acc}%`;
-  comboVal.textContent = `x${Math.max(1, 1 + Math.floor(state.combo / 5))}`;
+  comboVal.textContent = `x${metricsCalc.calculateComboMultiplier(state.combo)}`;
 };
 
 const clearFalling = () => {
@@ -260,21 +256,6 @@ const updateWordPositions = () => {
 const spawnInterval = () => Math.max(MIN_SPAWN, BASE_SPAWN - (state.level - 1) * 180);
 const fallDuration = () => Math.max(MIN_FALL, BASE_FALL - (state.level - 1) * 900);
 
-const celebrateHighScore = () => {
-  const container = document.createElement('div');
-  container.className = 'confetti';
-  const emojis = ['🎉', '👏', '⭐', '🔥', '🎊'];
-  for (let i = 0; i < 16; i++) {
-    const span = document.createElement('span');
-    span.textContent = emojis[Math.floor(Math.random() * emojis.length)];
-    span.style.left = `${Math.random() * 100}%`;
-    span.style.animationDelay = `${Math.random() * 0.2}s`;
-    container.appendChild(span);
-  }
-  document.body.appendChild(container);
-  setTimeout(() => container.remove(), 1200);
-};
-
 const handleMiss = (el) => {
   if (el.dataset.removed === '1') return;
   if (!state.running) return;
@@ -283,8 +264,7 @@ const handleMiss = (el) => {
   el.dataset.removed = '1';
   el.remove();
   state.falling.splice(idx, 1);
-  state.lives -= 1;
-  state.combo = 0;
+  scoreManager.loseLife();
   updateHUD();
   if (state.lives <= 0) {
     endGame('Out of lives');
@@ -351,21 +331,13 @@ const popWord = (entry, { breakCombo = false, awardScore = true } = {}) => {
   entry.el.style.animationPlayState = 'paused';
   entry.el.classList.add('popped');
 
-  if (breakCombo) state.combo = 0;
   if (awardScore) {
-    const base = Math.max(5, entry.word.length);
-    const mult = 1 + Math.floor(state.combo / 5);
-    state.score += base * mult;
-    if (state.score > state.highScore) {
-      state.highScore = state.score;
-      saveHighScore(state.highScore);
-      celebrateHighScore();
-    }
+    scoreManager.awardScore(entry.word.length, state.combo, breakCombo);
+  } else if (breakCombo) {
+    scoreManager.breakCombo();
   }
 
-  const now = Date.now();
-  state.recentWords.push({ time: now, chars: entry.word.length });
-  if (state.recentWords.length > 10) state.recentWords.shift();
+  scoreManager.trackWordTyped(entry.word.length);
   updateHUD();
 
   // Remove after animation completes
@@ -455,21 +427,7 @@ const levelUp = () => {
 };
 
 const checkUnlock = () => {
-  const acc = state.totalThumbs ? (state.correctThumbs / state.totalThumbs) * 100 : 100;
-  const wpm = calculateWPM();
-  const nextIdx = state.currentLessonIndex + 1;
-  const wordsTyped = state.recentWords.length;
-
-  // Unlock next lesson if: 80% accuracy OR 20 WPM OR typed 10+ words
-  if (nextIdx < state.lessons.length && (acc >= 80 || wpm >= 20 || wordsTyped >= 10)) {
-    if (!state.unlockedLessons.includes(nextIdx)) {
-      state.unlockedLessons.push(nextIdx);
-      saveProgress(state.unlockedLessons);
-      renderLessonPicker();
-      return `Next lesson unlocked! (WPM: ${wpm}, Acc: ${Math.round(acc)}%)`;
-    }
-  }
-  return null;
+  return progressTracker.checkUnlock(renderLessonPicker);
 };
 
 const endGame = (reason = 'Game over') => {
@@ -583,15 +541,13 @@ hiddenInput.addEventListener('input', () => {
         }
         
         if (thumbKnown) {
-          state.totalThumbs++;
           const correct = actualThumb === expected;
+          scoreManager.trackThumbAccuracy(correct);
           if (correct) {
-            state.correctThumbs++;
-            state.combo += 1;
-            state.maxCombo = Math.max(state.maxCombo, state.combo);
+            scoreManager.incrementCombo();
           } else {
             breakCombo = true;
-            state.combo = 0;
+            scoreManager.breakCombo();
           }
           const flashClass = correct ? 'correct-thumb' : 'wrong-thumb';
           const flashDuration = correct ? 420 : 480;
@@ -599,8 +555,7 @@ hiddenInput.addEventListener('input', () => {
           setTimeout(() => activeEntry.el.classList.remove(flashClass), flashDuration);
           setTimeout(() => popWord(activeEntry, { breakCombo, awardScore: true }), flashDuration);
         } else {
-          state.combo += 1;
-          state.maxCombo = Math.max(state.maxCombo, state.combo);
+          scoreManager.incrementCombo();
           popWord(activeEntry, { breakCombo: false, awardScore: true });
         }
         updateHUD();
