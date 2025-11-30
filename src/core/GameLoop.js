@@ -50,6 +50,14 @@ export class GameLoop {
   showLevelUpPause() {
     this.state.running = false;
     this.stop();
+
+    // Pause all falling words during level up
+    this.state.falling.forEach(wordObj => {
+      if (wordObj.pause) {
+        wordObj.pause();
+      }
+    });
+
     this.overlayManager.showLevelUpPause(this.state.level);
   }
 

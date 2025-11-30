@@ -11,6 +11,7 @@ export class GameState {
     this.unlockedLessons = loadUnlockedLessons();
     this.currentLessonIndex = 0;
     this.running = false;
+    this.paused = false;
     this.score = 0;
     this.highScore = loadHighScore();
     this.lives = 5;
@@ -36,5 +37,6 @@ export class GameState {
     this.maxCombo = 0;
     this.nextThumb = null;
     this.falling = [];
+    this.paused = false;
   }
 }

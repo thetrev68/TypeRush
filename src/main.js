@@ -81,6 +81,7 @@ const template = `
     </section>
 
     <section class="playfield" id="playfield">
+      <button id="pauseBtn" class="pause-btn hidden">⏸</button>
       <div class="overlay hidden" id="overlay">
         <div class="overlay-card">
           <h2 id="overlayTitle">Ready?</h2>
@@ -127,6 +128,7 @@ const speedVal = document.getElementById('speedVal');
 const wpmVal = document.getElementById('wpmVal');
 const accuracyVal = document.getElementById('accuracyVal');
 const comboVal = document.getElementById('comboVal');
+const pauseBtn = document.getElementById('pauseBtn');
 
 // Initialize state
 const gameState = new GameState();
@@ -160,6 +162,7 @@ const handleMiss = (el) => {
   scoreManager.loseLife();
   updateHUD();
   if (gameState.lives <= 0) {
+    pauseBtn.classList.add('hidden');
     gameLifecycle.end('Out of lives', lessonPicker);
   }
 };
@@ -204,15 +207,34 @@ overlayManager.setupRestartButton(async () => {
   if (!gameState.running) {
     // Starting fresh game
     await gameLifecycle.start(hiddenInput, lessonPicker);
+    pauseBtn.classList.remove('hidden');
+  } else if (gameState.paused) {
+    // Resuming from user pause
+    gameLifecycle.resume();
   } else {
-    // Resuming from pause (level up)
+    // Resuming from level up pause
     overlayManager.hide();
     overlayRestart.textContent = 'Play';
     gameState.running = true;
+
+    // Resume all falling words
+    gameState.falling.forEach(wordObj => {
+      if (wordObj.resume) {
+        wordObj.resume();
+      }
+    });
+
     wordSpawner.spawn();
     gameLoop.start();
     hiddenInput.value = '';
     focusInput();
+  }
+});
+
+// Setup pause button
+pauseBtn.addEventListener('click', () => {
+  if (gameState.running && !gameState.paused) {
+    gameLifecycle.pause();
   }
 });
 

@@ -12,6 +12,7 @@ export class BackgroundMusic {
     this.loopTimeout = null;
     this.currentTheme = 'default';
     this.lfoNode = null;  // For space theme vibrato
+    this.activeNodes = [];  // Track all active oscillators and gain nodes
   }
 
   /**
@@ -42,6 +43,10 @@ export class BackgroundMusic {
     osc.type = profile.waveType;
     osc.frequency.value = frequency;
 
+    // Track nodes for immediate stopping
+    const nodeGroup = { osc, gain, lfo: null };
+    this.activeNodes.push(nodeGroup);
+
     // Space theme: Add LFO for vibrato effect
     if (profile.useLFO) {
       const lfo = this.audioContext.createOscillator();
@@ -56,6 +61,7 @@ export class BackgroundMusic {
 
       lfo.start(startTime);
       lfo.stop(startTime + duration);
+      nodeGroup.lfo = lfo;
     }
 
     gain.gain.value = 0;
@@ -89,6 +95,16 @@ export class BackgroundMusic {
 
     osc.start(startTime);
     osc.stop(startTime + duration);
+
+    // Clean up node from tracking after it finishes
+    const currentTime = this.audioContext.currentTime;
+    const cleanupDelay = (startTime + duration - currentTime) * 1000;
+    setTimeout(() => {
+      const index = this.activeNodes.indexOf(nodeGroup);
+      if (index > -1) {
+        this.activeNodes.splice(index, 1);
+      }
+    }, cleanupDelay > 0 ? cleanupDelay : 0);
   }
 
   /**
@@ -171,6 +187,29 @@ export class BackgroundMusic {
       clearTimeout(this.loopTimeout);
       this.loopTimeout = null;
     }
+
+    // Immediately stop all active oscillators
+    const now = this.audioContext ? this.audioContext.currentTime : 0;
+    this.activeNodes.forEach(nodeGroup => {
+      try {
+        // Stop oscillators immediately
+        if (nodeGroup.osc) {
+          nodeGroup.osc.stop(now);
+        }
+        if (nodeGroup.lfo) {
+          nodeGroup.lfo.stop(now);
+        }
+        // Fade out gain to avoid clicks
+        if (nodeGroup.gain) {
+          nodeGroup.gain.gain.cancelScheduledValues(now);
+          nodeGroup.gain.gain.setValueAtTime(nodeGroup.gain.gain.value, now);
+          nodeGroup.gain.gain.linearRampToValueAtTime(0, now + 0.01);
+        }
+      } catch (e) {
+        // Ignore errors from already-stopped nodes
+      }
+    });
+    this.activeNodes = [];
   }
 
   /**

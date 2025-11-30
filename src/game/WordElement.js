@@ -123,4 +123,12 @@ export class WordElement {
   isRemoved() {
     return this.el.dataset.removed === '1';
   }
+
+  pause() {
+    this.el.style.animationPlayState = 'paused';
+  }
+
+  resume() {
+    this.el.style.animationPlayState = 'running';
+  }
 }

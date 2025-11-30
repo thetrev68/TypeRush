@@ -52,6 +52,23 @@ export class AudioManager {
   }
 
   /**
+   * Pause background music
+   */
+  pauseMusic() {
+    this.music.stop();
+  }
+
+  /**
+   * Resume background music
+   */
+  resumeMusic() {
+    if (this.settings.musicEnabled) {
+      const volume = this.settings.masterVolume * this.settings.musicVolume;
+      this.music.start(volume);
+    }
+  }
+
+  /**
    * Play tick sound for key press
    */
   playTick() {

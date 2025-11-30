@@ -81,4 +81,62 @@ export class GameLifecycle {
     this.overlayManager.showReady();
     lessonPickerEl.disabled = false;
   }
+
+  pause() {
+    if (!this.state.running || this.state.paused) return;
+
+    this.state.paused = true;
+    this.gameLoop.stop();
+
+    // Pause all falling words
+    this.state.falling.forEach(wordObj => {
+      if (wordObj.pause) {
+        wordObj.pause();
+      }
+    });
+
+    // Pause background music
+    if (this.audioManager) {
+      this.audioManager.pauseMusic();
+    }
+
+    // Change pause button to play icon
+    const pauseBtn = document.getElementById('pauseBtn');
+    if (pauseBtn) {
+      pauseBtn.textContent = '▶';
+    }
+
+    this.overlayManager.show('Paused', 'Tap Continue to resume.');
+    const overlayRestart = document.getElementById('overlayRestart');
+    overlayRestart.textContent = 'Continue';
+  }
+
+  resume() {
+    if (!this.state.running || !this.state.paused) return;
+
+    this.state.paused = false;
+    this.overlayManager.hide();
+
+    // Resume all falling words
+    this.state.falling.forEach(wordObj => {
+      if (wordObj.resume) {
+        wordObj.resume();
+      }
+    });
+
+    // Change play button back to pause icon
+    const pauseBtn = document.getElementById('pauseBtn');
+    if (pauseBtn) {
+      pauseBtn.textContent = '⏸';
+    }
+
+    // Resume background music
+    if (this.audioManager) {
+      this.audioManager.resumeMusic();
+    }
+
+    this.wordSpawner.spawn();
+    this.gameLoop.start();
+    this.focusInput();
+  }
 }
