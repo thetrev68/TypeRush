@@ -101,15 +101,22 @@ export class WordElement {
   }
 
   pop() {
-    this.el.dataset.removed = '1';
-    this.el.style.animationPlayState = 'paused';
-    this.el.classList.add('popped');
-    if (this.missHandler) {
-      this.el.removeEventListener('animationend', this.missHandler);
-    }
+    // Forward to remove() for consistent cleanup
+    this.remove();
   }
 
   remove() {
+    // Perform cleanup before removing element
+    this.el.dataset.removed = '1';
+    this.el.style.animationPlayState = 'paused';
+    this.el.classList.add('popped');
+    
+    // Remove event listener to prevent memory leaks
+    if (this.missHandler) {
+      this.el.removeEventListener('animationend', this.missHandler);
+      this.missHandler = null;
+    }
+    
     this.el.remove();
   }
 
