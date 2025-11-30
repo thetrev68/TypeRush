@@ -12,6 +12,9 @@ export class GameLoop {
   }
 
   start() {
+    // Clear any existing timers to prevent leaks
+    this.stop();
+
     this.wordSpawner.startTimer(() => {
       if (this.state.falling.length === 1) {
         this.activeWordTracker.update(this.state.falling);
