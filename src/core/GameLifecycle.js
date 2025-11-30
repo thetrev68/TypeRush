@@ -14,7 +14,7 @@ export class GameLifecycle {
   }
 
   async start(hiddenInput, lessonPickerEl) {
-    const idx = parseInt(lessonPickerEl.value);
+    const idx = Number(lessonPickerEl.value);
     this.state.currentLessonIndex = idx;
     this.state.activeWords = this.lessonPicker.filterWordsForLesson(
       this.state.lessons[idx],
