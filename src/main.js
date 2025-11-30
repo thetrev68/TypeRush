@@ -243,7 +243,6 @@ const applyTheme = (key) => {
 };
 
 const renderThemePicker = () => {
-  console.log('Rendering theme picker with themes:', Object.keys(themes));
   themePicker.innerHTML = Object.entries(themes)
     .map(([k, v]) => `<option value="${k}" ${k === currentTheme ? 'selected' : ''}>${v.name}</option>`)
     .join('');
@@ -271,8 +270,7 @@ const loadData = async () => {
     const [wRes, lRes] = await Promise.all([fetch('/data/words.json'), fetch('/data/lessons.json')]);
     state.words = (await wRes.json()).filter(Boolean);
     state.lessons = await lRes.json();
-  } catch (err) {
-    console.error('Failed to load data', err);
+  } catch {
     state.words = defaultWords;
     state.lessons = defaultLessons;
   }
@@ -317,13 +315,11 @@ const updateLessonInfo = () => {
   }
 };
 
-lessonPicker.addEventListener('change', (e) => {
-  console.log('Lesson picker changed to:', e.target.value);
+lessonPicker.addEventListener('change', () => {
   updateLessonInfo();
 });
 
 themePicker.addEventListener('change', (e) => {
-  console.log('Theme picker changed to:', e.target.value);
   applyTheme(e.target.value);
 });
 
@@ -762,8 +758,8 @@ loadData().then(() => {
 if ('serviceWorker' in navigator) {
   if (import.meta.env.PROD) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/service-worker.js').catch((err) => {
-        console.error('Service worker registration failed', err);
+      navigator.serviceWorker.register('/service-worker.js').catch(() => {
+        // Silent fail for service worker registration
       });
     });
   } else {

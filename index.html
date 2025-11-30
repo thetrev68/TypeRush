@@ -4,14 +4,38 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#0f172a" />
+    <meta name="description" content="Learn two-thumb typing with a fast, lightweight PWA." />
+    <meta name="keywords" content="typing, two-thumb, PWA, mobile, typing trainer" />
+    <meta name="author" content="TypeRush" />
+    <meta name="robots" content="index, follow" />
+    
+    <!-- PWA Meta -->
     <link rel="manifest" href="/manifest.json" />
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
-    <title>TypeRush</title>
     <link rel="apple-touch-icon" href="/icon.svg" />
-    <meta name="description" content="Learn two-thumb typing with a fast, lightweight PWA." />
+    
+    <!-- Performance optimizations -->
+    <link rel="preload" href="/data/words.json" as="fetch" crossorigin="anonymous" />
+    <link rel="preload" href="/data/lessons.json" as="fetch" crossorigin="anonymous" />
+    <link rel="dns-prefetch" href="//fonts.googleapis.com" />
+    
+    <!-- Security headers -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <meta http-equiv="X-Frame-Options" content="DENY" />
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block" />
+    
+    <title>TypeRush - Two-Thumb Typing Trainer</title>
   </head>
   <body>
     <div id="app"></div>
     <script type="module" src="/src/main.js"></script>
+    
+    <!-- No-JS fallback -->
+    <noscript>
+      <div style="text-align: center; padding: 2rem; color: #e6ecff;">
+        <h1>TypeRush</h1>
+        <p>This app requires JavaScript to function. Please enable JavaScript in your browser.</p>
+      </div>
+    </noscript>
   </body>
 </html>
