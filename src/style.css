@@ -408,16 +408,59 @@ button:active {
 
 /* Settings UI */
 .settings-container {
-  margin-top: 16px;
-  padding-top: 16px;
+  margin-top: 12px;
+}
+
+.settings-details {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 0;
+}
+
+.settings-summary {
+  padding: 10px 14px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.9rem;
+  color: var(--muted);
+  list-style: none;
+  transition: color 150ms ease;
+}
+
+.settings-summary::-webkit-details-marker {
+  display: none;
+}
+
+.settings-summary::before {
+  content: '▸ ';
+  display: inline-block;
+  transition: transform 150ms ease;
+}
+
+.settings-details[open] .settings-summary::before {
+  transform: rotate(90deg);
+}
+
+.settings-summary:hover {
+  color: var(--text);
+}
+
+.settings-content {
+  padding: 0 14px 14px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: 8px;
+  padding-top: 12px;
 }
 
 .settings-section {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.settings-section:last-child {
+  margin-bottom: 0;
 }
 
 .setting-item {

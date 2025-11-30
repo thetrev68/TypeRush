@@ -16,36 +16,41 @@ export class SettingsManager {
    */
   render() {
     this.container.innerHTML = `
-      <div class="settings-section">
-        <label class="setting-item">
-          <input type="checkbox" id="sfxToggle" ${this.settings.sfxEnabled ? 'checked' : ''} />
-          <span>Sound Effects</span>
-        </label>
-        <label class="setting-item">
-          <input type="checkbox" id="musicToggle" ${this.settings.musicEnabled ? 'checked' : ''} />
-          <span>Background Music</span>
-        </label>
-        <label class="setting-item">
-          <input type="checkbox" id="ttsToggle" ${this.settings.ttsEnabled ? 'checked' : ''} />
-          <span>Read Words Aloud</span>
-        </label>
-        <label class="setting-item">
-          <input type="checkbox" id="hapticsToggle" ${this.settings.hapticsEnabled ? 'checked' : ''} />
-          <span>Haptic Feedback</span>
-        </label>
-      </div>
-      <div class="settings-section">
-        <label class="setting-slider">
-          <span>Master Volume</span>
-          <input type="range" id="masterVolumeSlider" min="0" max="100" value="${this.settings.masterVolume * 100}" />
-          <span id="masterVolumeValue">${Math.round(this.settings.masterVolume * 100)}%</span>
-        </label>
-        <label class="setting-slider">
-          <span>Music Volume</span>
-          <input type="range" id="musicVolumeSlider" min="0" max="100" value="${this.settings.musicVolume * 100}" />
-          <span id="musicVolumeValue">${Math.round(this.settings.musicVolume * 100)}%</span>
-        </label>
-      </div>
+      <details class="settings-details">
+        <summary class="settings-summary">Audio & Haptic Settings</summary>
+        <div class="settings-content">
+          <div class="settings-section">
+            <label class="setting-item">
+              <input type="checkbox" id="sfxToggle" ${this.settings.sfxEnabled ? 'checked' : ''} />
+              <span>Sound Effects</span>
+            </label>
+            <label class="setting-item">
+              <input type="checkbox" id="musicToggle" ${this.settings.musicEnabled ? 'checked' : ''} />
+              <span>Background Music</span>
+            </label>
+            <label class="setting-item">
+              <input type="checkbox" id="ttsToggle" ${this.settings.ttsEnabled ? 'checked' : ''} />
+              <span>Read Words Aloud</span>
+            </label>
+            <label class="setting-item">
+              <input type="checkbox" id="hapticsToggle" ${this.settings.hapticsEnabled ? 'checked' : ''} />
+              <span>Haptic Feedback</span>
+            </label>
+          </div>
+          <div class="settings-section">
+            <label class="setting-slider">
+              <span>Master Volume</span>
+              <input type="range" id="masterVolumeSlider" min="0" max="100" value="${this.settings.masterVolume * 100}" />
+              <span id="masterVolumeValue">${Math.round(this.settings.masterVolume * 100)}%</span>
+            </label>
+            <label class="setting-slider">
+              <span>Music Volume</span>
+              <input type="range" id="musicVolumeSlider" min="0" max="100" value="${this.settings.musicVolume * 100}" />
+              <span id="musicVolumeValue">${Math.round(this.settings.musicVolume * 100)}%</span>
+            </label>
+          </div>
+        </div>
+      </details>
     `;
   }
 
