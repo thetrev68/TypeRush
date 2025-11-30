@@ -9,6 +9,10 @@ import { findSafeSpawnPosition } from './utils/positioning.js';
 import { MetricsCalculator } from './scoring/MetricsCalculator.js';
 import { ScoreManager } from './scoring/ScoreManager.js';
 import { ProgressTracker } from './scoring/ProgressTracker.js';
+import { HUD } from './ui/HUD.js';
+import { ThemeManager } from './ui/ThemeManager.js';
+import { LessonPicker } from './ui/LessonPicker.js';
+import { OverlayManager } from './ui/OverlayManager.js';
 
 const root = document.querySelector('#app');
 
@@ -101,8 +105,6 @@ const wpmVal = document.getElementById('wpmVal');
 const accuracyVal = document.getElementById('accuracyVal');
 const comboVal = document.getElementById('comboVal');
 
-let currentTheme = loadTheme();
-
 const state = {
   words: [],
   lessons: [],
@@ -135,43 +137,10 @@ const { focusInput, getCurrentThumbSide, setCurrentThumbSide } = setupFocusManag
 const metricsCalc = new MetricsCalculator();
 const scoreManager = new ScoreManager(state);
 const progressTracker = new ProgressTracker(state);
-
-const applyTheme = (key) => {
-  const theme = themes[key] || themes.default;
-  Object.entries(theme.vars).forEach(([k, v]) => {
-    document.documentElement.style.setProperty(k, v);
-  });
-  // Update body class for theme-specific CSS
-  document.body.className = `theme-${key}`;
-  currentTheme = key;
-  saveTheme(key);
-  if (themeInfo) {
-    themeInfo.textContent = `Theme: ${theme.name}`;
-  }
-};
-
-const renderThemePicker = () => {
-  themePicker.innerHTML = Object.entries(themes)
-    .map(([k, v]) => `<option value="${k}" ${k === currentTheme ? 'selected' : ''}>${v.name}</option>`)
-    .join('');
-  themePicker.value = currentTheme;
-  applyTheme(currentTheme);
-};
-
-const filterWordsForLesson = (lesson) => {
-  const cfg = lesson.config;
-  return state.words.filter((w) => {
-    const chars = w.split('');
-    if (cfg.allowedSet === 'left') {
-      return chars.every((c) => leftLetters.has(c));
-    }
-    if (cfg.allowedSet === 'right') {
-      return chars.every((c) => rightLetters.has(c));
-    }
-    if (cfg.maxLength && w.length > cfg.maxLength) return false;
-    return true;
-  });
-};
+const hud = new HUD({ scoreVal, bestVal, livesVal, speedVal, wpmVal, accuracyVal, comboVal }, metricsCalc);
+const themeManager = new ThemeManager(themePicker, themeInfo);
+const lessonPickerManager = new LessonPicker(lessonPicker, lessonInfo, state);
+const overlayManager = new OverlayManager(overlay, overlayTitle, overlayMsg, overlayRestart);
 
 const loadData = async () => {
   try {
@@ -183,63 +152,18 @@ const loadData = async () => {
     state.lessons = defaultLessons;
   }
 
-  renderLessonPicker();
-  renderThemePicker();
+  lessonPickerManager.render();
+  themeManager.renderPicker();
+  themeManager.setupEventListeners();
+  lessonPickerManager.setupEventListeners();
 };
 
 const renderLessonPicker = () => {
-  lessonPicker.innerHTML = state.lessons
-    .map((l, i) => {
-      const locked = !state.unlockedLessons.includes(i);
-      return `<option value="${i}" ${locked ? 'disabled' : ''}>${locked ? '🔒 ' : ''}${l.title}</option>`;
-    })
-    .join('');
-  lessonPicker.value = state.currentLessonIndex;
-  updateLessonInfo();
+  lessonPickerManager.render();
 };
-
-const updateLessonInfo = () => {
-  const idx = parseInt(lessonPicker.value);
-  state.currentLessonIndex = idx;
-  const lesson = state.lessons[idx];
-  const locked = !state.unlockedLessons.includes(idx);
-  if (lesson) {
-    if (locked) {
-      lessonInfo.textContent = 'Locked: Finish previous with 80% acc OR 20 WPM OR 10 words.';
-      lessonInfo.style.color = '#ff4d6d';
-    } else {
-      lessonInfo.textContent = lesson.description;
-      lessonInfo.style.color = 'var(--accent-2)';
-    }
-  }
-};
-
-lessonPicker.addEventListener('change', () => {
-  updateLessonInfo();
-});
-
-themePicker.addEventListener('change', (e) => {
-  applyTheme(e.target.value);
-});
-
-// Add touch support for mobile
-lessonPicker.addEventListener('touchstart', (e) => {
-  e.stopPropagation();
-}, { passive: true });
-
-themePicker.addEventListener('touchstart', (e) => {
-  e.stopPropagation();
-}, { passive: true });
 
 const updateHUD = () => {
-  scoreVal.textContent = state.score.toString();
-  bestVal.textContent = state.highScore.toString();
-  livesVal.textContent = `${state.lives}`;
-  speedVal.textContent = `Lv ${state.level}`;
-  wpmVal.textContent = metricsCalc.calculateWPM(state.recentWords).toString();
-  const acc = metricsCalc.calculateAccuracy(state.correctThumbs, state.totalThumbs);
-  accuracyVal.textContent = `${acc}%`;
-  comboVal.textContent = `x${metricsCalc.calculateComboMultiplier(state.combo)}`;
+  hud.update(state);
 };
 
 const clearFalling = () => {
@@ -413,10 +337,7 @@ const showLevelUpPause = () => {
   state.running = false;
   clearInterval(state.spawnTimer);
   clearInterval(state.rampTimer);
-  overlayTitle.textContent = `Level ${state.level} Complete!`;
-  overlayMsg.textContent = 'Take a quick break. Tap Play to continue.';
-  overlay.classList.remove('hidden');
-  overlayRestart.textContent = 'Continue';
+  overlayManager.showLevelUpPause(state.level);
 };
 
 const levelUp = () => {
@@ -437,9 +358,7 @@ const endGame = (reason = 'Game over') => {
   clearInterval(state.positionTimer);
   clearFalling();
   const unlockMsg = checkUnlock();
-  overlayTitle.textContent = unlockMsg ? 'Success!' : 'Game Over';
-  overlayMsg.textContent = unlockMsg || reason;
-  overlay.classList.remove('hidden');
+  overlayManager.showGameOver(unlockMsg);
   lessonPicker.disabled = false;
 };
 
@@ -458,16 +377,14 @@ const resetGame = () => {
   clearInterval(state.positionTimer);
   clearFalling();
   updateHUD();
-  overlayTitle.textContent = 'Ready?';
-  overlayMsg.textContent = 'Tap start to play.';
-  overlay.classList.remove('hidden');
+  overlayManager.showReady();
   lessonPicker.disabled = false;
 };
 
 const startGame = async () => {
   const idx = parseInt(lessonPicker.value);
   state.currentLessonIndex = idx;
-  state.activeWords = filterWordsForLesson(state.lessons[idx]);
+  state.activeWords = lessonPickerManager.filterWordsForLesson(state.lessons[idx], state.words);
   state.leftWords = state.activeWords.filter((w) => getExpectedThumb(w) === 'left');
   state.rightWords = state.activeWords.filter((w) => getExpectedThumb(w) === 'right');
   state.nextThumb = state.lessons[idx]?.config?.enforceAlternate ? 'left' : null;
@@ -489,7 +406,7 @@ const startGame = async () => {
   state.maxCombo = 0;
   clearFalling();
   updateHUD();
-  overlay.classList.add('hidden');
+  overlayManager.hide();
   lessonPicker.disabled = true;
 
   hiddenInput.value = '';
@@ -570,13 +487,13 @@ hiddenInput.addEventListener('input', () => {
   }
 });
 
-overlayRestart.addEventListener('click', async () => {
+overlayManager.setupRestartButton(async () => {
   if (!state.running) {
     // Starting fresh game
     await startGame();
   } else {
     // Resuming from pause (level up)
-    overlay.classList.add('hidden');
+    overlayManager.hide();
     overlayRestart.textContent = 'Play';
     state.running = true;
     spawnWord();
