@@ -103,7 +103,11 @@ export class InputHandler {
       activeEntry.el.removeEventListener('animationend', activeEntry.missHandler);
     }
 
-    if (thumbKnown) {
+    // Check if we're in a mode that requires thumb validation
+    const lesson = this.state.lessons[this.state.currentLessonIndex];
+    const requiresThumbValidation = lesson?.config?.allowedSet === 'left' || lesson?.config?.allowedSet === 'right';
+
+    if (thumbKnown && requiresThumbValidation) {
       const correct = actualThumb === expected;
       this.scoreManager.trackThumbAccuracy(correct);
 
@@ -128,7 +132,7 @@ export class InputHandler {
         setTimeout(() => this.popWord(activeEntry, { breakCombo, awardScore: true }), flashDuration);
       }
     } else {
-      // Track as correct even when thumb is unknown (assume user typed correctly)
+      // Track as correct when thumb validation is not required or thumb is unknown
       this.scoreManager.trackThumbAccuracy(true);
       this.scoreManager.incrementCombo();
       this.audioManager.playCorrect();

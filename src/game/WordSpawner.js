@@ -1,4 +1,4 @@
-import { MIN_SPAWN, BASE_SPAWN, MIN_FALL, BASE_FALL, leftLetters } from '../config/constants.js';
+import { MIN_SPAWN, BASE_SPAWN, MIN_FALL, BASE_FALL } from '../config/constants.js';
 import { findSafeSpawnPosition } from '../utils/positioning.js';
 import { WordElement } from './WordElement.js';
 
@@ -52,15 +52,9 @@ export class WordSpawner {
       word = this.selectWordByLevel(this.state.activeWords);
     }
 
-    // Create WordElement instance
+    // Create WordElement instance (already has colored letters)
     const wordElement = new WordElement(word, this.onMiss);
     const el = wordElement.el;
-
-    // Add thumb indicator to first letter
-    const firstLetter = word[0];
-    const isLeft = leftLetters.has(firstLetter.toLowerCase());
-    const firstLetterClass = isLeft ? 'first-letter-left' : 'first-letter-right';
-    el.innerHTML = `<span class="${firstLetterClass}">${firstLetter}</span>${word.substring(1)}`;
 
     // Find safe position with spacing
     const estimatedWidth = word.length * 12 + 28;

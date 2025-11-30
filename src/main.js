@@ -224,8 +224,8 @@ overlayManager.setupRestartButton(async () => {
 
     // Resume all falling words
     gameState.falling.forEach(wordObj => {
-      if (wordObj.resume) {
-        wordObj.resume();
+      if (wordObj.wordElement && wordObj.wordElement.resume) {
+        wordObj.wordElement.resume();
       }
     });
 
