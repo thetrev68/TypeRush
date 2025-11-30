@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Icon Generator</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #0f172a;
+            color: #e8edff;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 30px;
+            border-radius: 16px;
+        }
+        h1 {
+            color: #7c5dff;
+        }
+        button {
+            background: linear-gradient(135deg, #7c5dff, #35d1ff);
+            color: #0f172a;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 10px 0;
+            font-size: 16px;
+        }
+        button:hover {
+            filter: brightness(1.1);
+        }
+        .preview {
+            display: flex;
+            gap: 20px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        .icon-preview {
+            text-align: center;
+        }
+        .icon-preview img {
+            border: 2px solid rgba(124, 93, 255, 0.5);
+            border-radius: 12px;
+            display: block;
+            margin-bottom: 8px;
+        }
+        .instructions {
+            background: rgba(124, 93, 255, 0.1);
+            padding: 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+            border-left: 4px solid #7c5dff;
+        }
+        code {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: #35d1ff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>TypeRush Icon Generator</h1>
+
+        <div class="instructions">
+            <h3>Instructions:</h3>
+            <ol>
+                <li>Click the buttons below to generate PNG icons</li>
+                <li>Right-click each generated image and "Save As"</li>
+                <li>Save them to <code>public/</code> directory:
+                    <ul>
+                        <li><code>icon-192.png</code></li>
+                        <li><code>icon-512.png</code></li>
+                        <li><code>icon-maskable.png</code></li>
+                    </ul>
+                </li>
+                <li>The manifest.json will be automatically updated</li>
+            </ol>
+        </div>
+
+        <button onclick="generateIcon(192)">Generate 192x192 Icon</button>
+        <button onclick="generateIcon(512)">Generate 512x512 Icon</button>
+        <button onclick="generateMaskable()">Generate Maskable Icon (512x512)</button>
+
+        <div class="preview" id="preview"></div>
+    </div>
+
+    <script>
+        const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="TypeRush icon">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7c5dff"/>
+      <stop offset="100%" stop-color="#35d1ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="#0f172a"/>
+  <rect x="64" y="120" width="384" height="272" rx="32" fill="url(#g)" opacity="0.18"/>
+  <rect x="96" y="160" width="320" height="200" rx="24" fill="url(#g)" opacity="0.32"/>
+  <text x="256" y="290" text-anchor="middle" font-family="Montserrat, Inter, sans-serif" font-size="140" font-weight="700" fill="#e8edff">
+    T
+  </text>
+</svg>`;
+
+        const maskableSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="TypeRush maskable icon">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7c5dff"/>
+      <stop offset="100%" stop-color="#35d1ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="#0f172a"/>
+  <rect x="84" y="140" width="344" height="232" rx="28" fill="url(#g)" opacity="0.18"/>
+  <rect x="108" y="172" width="296" height="168" rx="20" fill="url(#g)" opacity="0.32"/>
+  <text x="256" y="285" text-anchor="middle" font-family="Montserrat, Inter, sans-serif" font-size="120" font-weight="700" fill="#e8edff">
+    T
+  </text>
+</svg>`;
+
+        function generateIcon(size, maskable = false) {
+            const svg = maskable ? maskableSvg : svgContent;
+            const img = new Image();
+            const blob = new Blob([svg], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(blob);
+
+            img.onload = function() {
+                const canvas = document.createElement('canvas');
+                canvas.width = size;
+                canvas.height = size;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, size, size);
+
+                canvas.toBlob(function(pngBlob) {
+                    const pngUrl = URL.createObjectURL(pngBlob);
+                    const preview = document.getElementById('preview');
+
+                    const div = document.createElement('div');
+                    div.className = 'icon-preview';
+
+                    const imgEl = document.createElement('img');
+                    imgEl.src = pngUrl;
+                    imgEl.width = size > 256 ? 256 : size;
+                    imgEl.height = size > 256 ? 256 : size;
+
+                    const label = document.createElement('div');
+                    label.textContent = maskable ? `Maskable ${size}x${size}` : `${size}x${size}`;
+
+                    const link = document.createElement('a');
+                    link.href = pngUrl;
+                    link.download = maskable ? `icon-maskable.png` : `icon-${size}.png`;
+                    link.textContent = 'Download';
+                    link.style.cssText = 'color: #35d1ff; text-decoration: none; font-weight: 600;';
+
+                    div.appendChild(imgEl);
+                    div.appendChild(label);
+                    div.appendChild(document.createElement('br'));
+                    div.appendChild(link);
+
+                    preview.appendChild(div);
+
+                    URL.revokeObjectURL(url);
+                });
+            };
+
+            img.src = url;
+        }
+
+        function generateMaskable() {
+            generateIcon(512, true);
+        }
+    </script>
+</body>
+</html>

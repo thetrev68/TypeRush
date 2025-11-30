@@ -235,6 +235,8 @@ const applyTheme = (key) => {
   Object.entries(theme.vars).forEach(([k, v]) => {
     document.documentElement.style.setProperty(k, v);
   });
+  // Update body class for theme-specific CSS
+  document.body.className = `theme-${key}`;
   currentTheme = key;
   localStorage.setItem('tr_theme', key);
   if (themeInfo) {
@@ -274,19 +276,12 @@ const loadData = async () => {
     state.words = defaultWords;
     state.lessons = defaultLessons;
   }
-  
-  // Ensure dropdowns are populated even if data loading fails
-  setTimeout(() => {
-    renderLessonPicker();
-    renderThemePicker();
-  }, 0);
-  
+
   renderLessonPicker();
   renderThemePicker();
 };
 
 const renderLessonPicker = () => {
-  console.log('Rendering lesson picker with', state.lessons.length, 'lessons');
   lessonPicker.innerHTML = state.lessons
     .map((l, i) => {
       const locked = !state.unlockedLessons.includes(i);
