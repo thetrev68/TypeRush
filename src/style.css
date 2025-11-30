@@ -184,6 +184,7 @@ body.theme-racing .playfield {
   color: var(--text);
   animation: fall var(--fall-duration, 9000ms) linear forwards;
   will-change: transform;
+  z-index: 1;
 }
 
 /* Theme-specific word effects */
@@ -288,6 +289,7 @@ body.theme-racing .word {
   place-items: center;
   background: radial-gradient(140% 140% at 50% 10%, rgba(12, 18, 32, 0.8), rgba(12, 18, 32, 0.92));
   backdrop-filter: blur(2px);
+  z-index: 100;
 }
 
 .overlay.hidden {
@@ -432,7 +434,7 @@ button.hidden {
 
 .tip {
   margin: 12px 0 0;
-  padding-bottom: 20px;
+  padding-bottom: env(safe-area-inset-bottom, 24px);
   color: var(--muted);
   font-size: 0.9rem;
   text-align: center;

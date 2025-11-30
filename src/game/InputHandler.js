@@ -51,6 +51,8 @@ export class InputHandler {
             this.handleWordComplete(activeEntry, detectedThumb);
           }
         } else {
+          // Track typing mistake for accuracy
+          this.scoreManager.trackThumbAccuracy(false);
           this.flashError(activeEntry.el);
           this.audioManager.playError();
           this.hapticManager.error();

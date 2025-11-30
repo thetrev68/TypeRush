@@ -51,6 +51,17 @@ export class GameLoop {
     this.state.running = false;
     this.stop();
 
+    // Pause background music during level up
+    if (this.audioManager) {
+      this.audioManager.pauseMusic();
+    }
+
+    // Hide pause button during level up
+    const pauseBtn = document.getElementById('pauseBtn');
+    if (pauseBtn) {
+      pauseBtn.classList.add('hidden');
+    }
+
     // Remove all falling words during level up
     this.state.falling.forEach(wordObj => {
       if (wordObj.wordElement && wordObj.wordElement.remove) {

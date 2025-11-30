@@ -11,9 +11,11 @@ A lightweight, offline-capable PWA designed to help you master two-thumb typing 
 - **Engaging Gameplay**: Falling-word mechanic keeps practice fun and challenging
 - **Two-Thumb Training**: Visual feedback teaches proper left/right thumb usage
 - **PWA-First**: Install on your home screen, works offline after first load
-- **Progressive Lessons**: Six structured lessons from beginner to advanced
+- **Progressive Lessons**: Six structured lessons from beginner to advanced (first 3 auto-unlocked)
 - **Real-Time Metrics**: Track WPM, accuracy, combos, and high scores
-- **Four Themes**: Default, Space, Ocean, and Racing visual styles
+- **Four Themes**: Default, Space, Ocean, and Racing visual styles with unique background music
+- **Audio Feedback**: Theme-specific melodies, sound effects, and haptic feedback
+- **Pause Anytime**: Comprehensive pause/resume system with full state preservation
 - **Daily Challenge**: Seeded randomization for consistent daily runs
 - **Ultra-Lightweight**: < 8 kB gzipped (excluding word data)
 
@@ -59,7 +61,8 @@ npm run analyze
    - Green indicator = left thumb (Q-B keys)
    - Orange indicator = right thumb (Y-M keys)
 4. **Build Combos**: Consecutive correct words with proper thumb usage multiply your score
-5. **Track Progress**: Complete lessons with 95%+ accuracy and 30+ WPM to unlock the next
+5. **Pause Anytime**: Click the pause button (⏸️) to pause and resume gameplay
+6. **Track Progress**: Complete lessons with 95%+ accuracy and 30+ WPM to unlock the next
 
 ## Lesson Structure
 
@@ -90,17 +93,21 @@ TypeRush/
 │   ├── manifest.json          # PWA manifest
 │   └── service-worker.js      # Offline caching logic
 ├── src/
+│   ├── audio/                 # Audio system
+│   │   ├── AudioManager.js    # Sound effects & haptics
+│   │   ├── BackgroundMusic.js # Theme-specific music
+│   │   └── themeMusicProfiles.js  # Musical theme definitions
 │   ├── config/                # Configuration & constants
 │   │   ├── constants.js       # Default data & game constants
 │   │   └── themes.js          # Theme definitions
 │   ├── core/                  # Core game architecture
-│   │   ├── GameLifecycle.js   # Game start/stop/reset logic
+│   │   ├── GameLifecycle.js   # Game start/pause/resume/stop logic
 │   │   ├── GameLoop.js        # Main game tick loop
 │   │   └── GameState.js       # Centralized state management
 │   ├── game/                  # Game mechanics
 │   │   ├── ActiveWordTracker.js  # Tracks current typing target
 │   │   ├── InputHandler.js    # Keyboard input processing
-│   │   ├── WordElement.js     # Word DOM element creation
+│   │   ├── WordElement.js     # Word DOM element creation & animation
 │   │   └── WordSpawner.js     # Word spawning & falling logic
 │   ├── scoring/               # Scoring & progression
 │   │   ├── MetricsCalculator.js  # WPM & accuracy calculation
@@ -115,7 +122,7 @@ TypeRush/
 │   │   ├── focus.js           # Keyboard focus management
 │   │   ├── positioning.js     # Word positioning calculations
 │   │   ├── rng.js             # Seeded random number generation
-│   │   ├── storage.js         # localStorage wrapper
+│   │   ├── storage.js         # localStorage wrapper with migration
 │   │   └── thumbDetection.js  # Left/right thumb detection
 │   ├── main.js                # Application entry point
 │   └── style.css              # All styles and themes
@@ -126,27 +133,37 @@ TypeRush/
 
 ### Architecture
 
-**Modular Design**: TypeRush uses a clean, modular architecture with separation of concerns across distinct domains (core, game, scoring, UI, utilities). The codebase was recently refactored from a monolithic structure into this maintainable, extensible design that makes it easy to add features and test components independently.
+**Modular Design**: TypeRush uses a clean, modular architecture with separation of concerns across distinct domains (audio, core, game, scoring, UI, utilities). The codebase was recently refactored from a monolithic structure into this maintainable, extensible design that makes it easy to add features and test components independently.
 
 **Core Game Loop** ([src/core/GameLoop.js](src/core/GameLoop.js))
 - Manages requestAnimationFrame tick cycle
 - Updates falling word positions
 - Handles level progression and spawning
+- Supports pause/resume functionality
 
 **State Management** ([src/core/GameState.js](src/core/GameState.js))
 - Centralized game state (score, lives, speed, words)
 - Lesson configuration and word filtering
 - Clean state reset between games
+- Pause state tracking
 
 **Input Processing** ([src/game/InputHandler.js](src/game/InputHandler.js))
 - Keyboard input validation
 - Active word matching and completion
 - Integration with scoring system
+- Thumb validation for hand-specific lessons
 
 **Scoring System** ([src/scoring/](src/scoring/))
 - Real-time WPM calculation (rolling 10-word average)
 - Accuracy tracking with combo multipliers
 - Progress persistence via localStorage
+- First 3 lessons auto-unlocked for new users
+
+**Audio System** ([src/audio/](src/audio/))
+- Theme-specific background music using Web Audio API
+- Sound effects for typing actions
+- Haptic feedback on supported devices
+- User-controlled with pause integration
 
 **Caching Strategy** ([public/service-worker.js](public/service-worker.js))
 - Static assets: Cache-first
@@ -177,6 +194,42 @@ npm run build
 ```
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed deployment instructions and optimization tips.
+
+## Updating the PWA on Mobile
+
+If you've installed TypeRush as a PWA on your mobile device and updates aren't appearing, follow these steps:
+
+### Method 1: Hard Refresh (Recommended)
+1. Open TypeRush in your mobile browser (not the installed PWA)
+2. Access browser settings and clear cache for the site
+3. **iOS Safari**: Settings → Safari → Advanced → Website Data → Find TypeRush → Remove
+4. **Android Chrome**: Settings → Site settings → Storage → Find TypeRush → Clear & reset
+5. Close browser completely and reopen
+6. Visit the site URL - new version will be cached
+7. Re-add to home screen if needed
+
+### Method 2: Force Service Worker Update
+1. Open TypeRush in mobile browser
+2. Open DevTools (if available on mobile) or use desktop Chrome's remote debugging
+3. Go to Application → Service Workers
+4. Click "Update" or "Unregister"
+5. Refresh the page
+
+### Method 3: Complete Reinstall
+1. Remove the PWA from your home screen
+2. Clear browser cache (see Method 1)
+3. Visit the site URL in browser
+4. Add to home screen again
+
+### For Developers
+To force users to get updates, increment the cache version in [public/service-worker.js](public/service-worker.js):
+```javascript
+const CACHE_NAME = 'typerush-cache-v4'; // Increment version number
+const STATIC_CACHE = 'typerush-static-v4';
+const DYNAMIC_CACHE = 'typerush-dynamic-v4';
+```
+
+The service worker will automatically delete old caches and fetch new assets on the next visit.
 
 ## Performance
 
@@ -255,12 +308,15 @@ Contributions are welcome! Please:
 
 ## Roadmap
 
+- [x] Add sound effects and haptic feedback
+- [x] Theme-specific background music
+- [x] Pause/resume functionality
+- [x] Auto-unlock first 3 lessons for new users
 - [ ] Add unit tests (Vitest)
-- [ ] Generate PNG icons for better PWA support
+- [x] Generate PNG icons for better PWA support
 - [ ] Add accessibility improvements (ARIA live regions, screen reader support)
-- [ ] Text-to-speech for active words (Web Speech API)
+- [x] Text-to-speech for active words (Web Speech API)
 - [ ] Implement privacy-friendly analytics
-- [ ] Add sound effects and haptic feedback toggles
 - [ ] Multiplayer mode
 - [ ] Custom word lists
 - [ ] Statistics dashboard with detailed typing analytics
@@ -268,7 +324,7 @@ Contributions are welcome! Please:
 
 ## Credits
 
-- **Design & Planning**: Grok AI
+- **Design & Planning**: Grok 3
 - **Implementation**: MiniMax2, Grok Fast 1, Gemini Pro 3, ChatGPT Codex 5.1
 - **QA & Polish**: Claude (Anthropic)
 

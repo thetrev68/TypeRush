@@ -229,6 +229,12 @@ overlayManager.setupRestartButton(async () => {
       }
     });
 
+    // Resume background music
+    audioManager.resumeMusic();
+
+    // Show pause button again
+    pauseBtn.classList.remove('hidden');
+
     wordSpawner.spawn();
     gameLoop.start();
     hiddenInput.value = '';

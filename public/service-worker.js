@@ -1,6 +1,6 @@
-const CACHE_NAME = 'typerush-cache-v3';
-const STATIC_CACHE = 'typerush-static-v3';
-const DYNAMIC_CACHE = 'typerush-dynamic-v3';
+const CACHE_NAME = 'typerush-cache-v4';
+const STATIC_CACHE = 'typerush-static-v4';
+const DYNAMIC_CACHE = 'typerush-dynamic-v4';
 
 // Assets with different cache strategies
 const STATIC_ASSETS = [

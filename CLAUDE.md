@@ -45,6 +45,7 @@ The codebase uses a clean, modular architecture with ES6 classes and explicit se
 
 ### Module Organization
 
+- **audio/**: Audio system (`AudioManager`, `BackgroundMusic`, theme music profiles)
 - **config/**: Static configuration (constants, theme definitions)
 - **core/**: Game architecture (`GameState`, `GameLoop`, `GameLifecycle`)
 - **game/**: Game mechanics (`WordSpawner`, `InputHandler`, `ActiveWordTracker`, `WordElement`)
@@ -66,23 +67,35 @@ The codebase uses a clean, modular architecture with ES6 classes and explicit se
 - `maxLength`: number - max word length
 - `level`: number - affects game speed (not word filtering)
 
-**Alternating Thumb Enforcement**: When `enforceAlternate` is true, `state.nextThumb` tracks which thumb should type the next word. `WordSpawner` respects this by selecting from `state.leftWords` or `state.rightWords`.
+**Alternating Thumb Enforcement**: When `enforceAlternate` is true, `state.nextThumb` tracks which thumb should type the next word. `WordSpawner` respects this by selecting from `state.leftWords` or `state.rightWords`. Note: Thumb validation only occurs in left-hand or right-hand specific modes; mixed-thumb words are allowed in alternating/mixed modes without validation.
 
 **Seeded RNG**: Daily challenge mode uses a date-based seed with a custom RNG implementation (`utils/rng.js`) to ensure consistent word sequences across sessions.
 
-**Game Loop**: Uses `requestAnimationFrame` for smooth 60fps updates. `GameLoop` updates word positions, checks if words passed the bottom threshold, and handles level progression (speed increases).
+**Game Loop**: Uses `requestAnimationFrame` for smooth 60fps updates. `GameLoop` updates word positions, checks if words passed the bottom threshold, and handles level progression (speed increases). The loop can be paused/resumed via `GameLoop.pause()` and `GameLoop.resume()`.
+
+**Pause System**: Comprehensive pause functionality allows players to pause gameplay at any time. When paused:
+- Game loop stops (`GameLoop.pause()`)
+- All falling words pause animation (`WordElement.pause()`)
+- Background music pauses (`BackgroundMusic.pause()`)
+- Sound effects and haptics are suppressed (`AudioManager.setPaused(true)`)
+- Overlay shows "Game Paused" with Resume button
+- Resume restores all systems to previous state
+
+**Audio System**: Implemented with `AudioManager` for sound effects and haptics, plus `BackgroundMusic` for theme-specific melodies. Each theme has a unique musical profile defined in `themeMusicProfiles.js` using Web Audio API oscillators. Audio is user-controlled and respects browser autoplay policies.
 
 **localStorage Prefix**: All localStorage keys use `tr_` prefix (e.g., `tr_unlocked`, `tr_highscore`, `tr_theme`).
 
-**Error Handling in Storage**: `storage.js` includes robust JSON parse error handling with automatic cleanup of corrupted data and fallback to safe defaults.
+**Error Handling in Storage**: `storage.js` includes robust JSON parse error handling with automatic cleanup of corrupted data and fallback to safe defaults. Migration logic auto-unlocks the first 3 levels for existing users.
 
 ### State Lifecycle
 
 1. **Initialize**: `GameState` constructed, loads unlocked lessons & high score from localStorage
 2. **Reset**: `state.reset()` clears game-specific state (score, lives, combo) but preserves lessons/words
-3. **Start**: `GameLifecycle.start()` filters words for lesson, seeds RNG, spawns first word, starts loop
+3. **Start**: `GameLifecycle.start()` filters words for lesson, seeds RNG, spawns first word, starts loop, starts background music
 4. **Running**: `GameLoop` ticks, words fall, input handled, score updates
-5. **End**: `GameLifecycle.end()` stops loop, clears words, checks for lesson unlocks, shows overlay
+5. **Pause**: `GameLifecycle.pause()` stops loop, pauses words, pauses music, shows pause overlay
+6. **Resume**: `GameLifecycle.resume()` restarts loop, resumes words, resumes music, hides overlay
+7. **End**: `GameLifecycle.end()` stops loop, clears words, stops music, checks for lesson unlocks, shows overlay
 
 ### DOM Structure
 
@@ -93,6 +106,7 @@ The entire app is rendered into `#app` via a template literal in `main.js`. No c
 - `#playfield`: Container where falling words are spawned
 - `#overlay`: Game start/pause/end screen
 - `.hud`: Displays score, lives, WPM, accuracy, combo
+- `#pauseBtn`: Pause button (appears during gameplay, hidden on overlay)
 
 ### Service Worker Strategy
 
