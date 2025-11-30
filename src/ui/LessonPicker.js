@@ -8,9 +8,9 @@ export class LessonPicker {
   }
 
   filterWordsForLesson(lesson, words) {
-    const cfg = lesson.config;
+    const cfg = lesson.config || {};
     return words.filter((w) => {
-      const chars = w.split('');
+      const chars = w.toLowerCase().split('');
       if (cfg.allowedSet === 'left') {
         return chars.every((c) => leftLetters.has(c));
       }
