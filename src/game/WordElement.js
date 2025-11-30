@@ -4,7 +4,12 @@ export class WordElement {
   constructor(word, onMiss) {
     this.word = word.toLowerCase();
     this.el = this.createElement();
-    this.missHandler = () => onMiss(this.el);
+    this.missHandler = (event) => {
+      // Only call onMiss for the fall animation and when word is still active
+      if (event.animationName === 'fall' && !this.isRemoved() && document.contains(this.el)) {
+        onMiss(this.el);
+      }
+    };
     this.el.addEventListener('animationend', this.missHandler);
   }
 
