@@ -1,5 +1,11 @@
 export const findSafeSpawnPosition = (wordWidth, falling, playfield, rng) => {
   const maxLeft = Math.max(0, playfield.clientWidth - wordWidth - 20);
+  
+  // If playfield is too narrow, center the word horizontally as fallback
+  if (maxLeft <= 0) {
+    return Math.max(0, (playfield.clientWidth - wordWidth) / 2);
+  }
+  
   const minSpacing = 120; // Minimum pixels between words
   let attempts = 0;
   let left;
