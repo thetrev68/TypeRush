@@ -1,20 +1,33 @@
 import './style.css';
+
+// Config
 import { defaultLessons, defaultWords } from './config/constants.js';
+
+// Utils
 import { setupFocusManagement } from './utils/focus.js';
+
+// Core
+import { GameState } from './core/GameState.js';
+import { GameLoop } from './core/GameLoop.js';
+import { GameLifecycle } from './core/GameLifecycle.js';
+
+// Game
+import { WordSpawner } from './game/WordSpawner.js';
+import { ActiveWordTracker } from './game/ActiveWordTracker.js';
+import { InputHandler } from './game/InputHandler.js';
+
+// Scoring
 import { MetricsCalculator } from './scoring/MetricsCalculator.js';
 import { ScoreManager } from './scoring/ScoreManager.js';
 import { ProgressTracker } from './scoring/ProgressTracker.js';
+
+// UI
 import { HUD } from './ui/HUD.js';
 import { ThemeManager } from './ui/ThemeManager.js';
 import { LessonPicker } from './ui/LessonPicker.js';
 import { OverlayManager } from './ui/OverlayManager.js';
-import { WordSpawner } from './game/WordSpawner.js';
-import { ActiveWordTracker } from './game/ActiveWordTracker.js';
-import { GameState } from './core/GameState.js';
-import { GameLoop } from './core/GameLoop.js';
-import { GameLifecycle } from './core/GameLifecycle.js';
-import { InputHandler } from './game/InputHandler.js';
 
+// DOM setup
 const root = document.querySelector('#app');
 
 const template = `
@@ -86,6 +99,7 @@ const template = `
 
 root.innerHTML = template;
 
+// Element references
 const hiddenInput = document.querySelector('#hiddenInput');
 const playfield = document.getElementById('playfield');
 const pwaBadge = document.getElementById('pwaBadge');
@@ -106,10 +120,12 @@ const wpmVal = document.getElementById('wpmVal');
 const accuracyVal = document.getElementById('accuracyVal');
 const comboVal = document.getElementById('comboVal');
 
+// Initialize state
 const gameState = new GameState();
 
 const { focusInput } = setupFocusManagement(hiddenInput);
 
+// Initialize managers
 const metricsCalc = new MetricsCalculator();
 const scoreManager = new ScoreManager(gameState);
 const progressTracker = new ProgressTracker(gameState, gameState.lessons);
@@ -118,6 +134,7 @@ const themeManager = new ThemeManager(themePicker, themeInfo);
 const lessonPickerManager = new LessonPicker(lessonPicker, lessonInfo, gameState);
 const overlayManager = new OverlayManager(overlay, overlayTitle, overlayMsg, overlayRestart);
 
+// Setup word spawner
 const handleMiss = (el) => {
   if (el.dataset.removed === '1') return;
   if (!gameState.running) return;
@@ -135,8 +152,14 @@ const handleMiss = (el) => {
 
 const wordSpawner = new WordSpawner(playfield, gameState, handleMiss);
 const activeWordTracker = new ActiveWordTracker(playfield);
+
+// Setup game loop
 const gameLoop = new GameLoop(gameState, wordSpawner, overlayManager, hud, activeWordTracker);
+
+// Setup lifecycle
 const gameLifecycle = new GameLifecycle(gameState, gameLoop, wordSpawner, hud, overlayManager, lessonPickerManager, progressTracker, focusInput);
+
+// Setup input handler
 const inputHandler = new InputHandler(hiddenInput, gameState, scoreManager, hud, activeWordTracker);
 
 const loadData = async () => {
@@ -159,8 +182,6 @@ const updateHUD = () => {
   hud.update(gameState);
 };
 
-
-
 inputHandler.setupListener();
 
 overlayManager.setupRestartButton(async () => {
@@ -179,7 +200,7 @@ overlayManager.setupRestartButton(async () => {
   }
 });
 
-// PWA and Offline detection
+// PWA badges
 const updateBadges = () => {
   // Check if running as installed PWA
   const isPWA = window.matchMedia('(display-mode: standalone)').matches ||
@@ -205,10 +226,12 @@ updateBadges();
 window.addEventListener('online', updateBadges);
 window.addEventListener('offline', updateBadges);
 
+// Load data and initialize
 loadData().then(() => {
   gameLifecycle.reset(lessonPicker);
 });
 
+// Service worker
 if ('serviceWorker' in navigator) {
   if (import.meta.env.PROD) {
     window.addEventListener('load', () => {
