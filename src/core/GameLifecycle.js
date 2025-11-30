@@ -2,7 +2,7 @@ import { createSeededRng } from '../utils/rng.js';
 import { getExpectedThumb } from '../utils/thumbDetection.js';
 
 export class GameLifecycle {
-  constructor(state, gameLoop, wordSpawner, hud, overlayManager, lessonPicker, progressTracker, focusInput) {
+  constructor(state, gameLoop, wordSpawner, hud, overlayManager, lessonPicker, progressTracker, focusInput, audioManager) {
     this.state = state;
     this.gameLoop = gameLoop;
     this.wordSpawner = wordSpawner;
@@ -11,6 +11,7 @@ export class GameLifecycle {
     this.lessonPicker = lessonPicker;
     this.progressTracker = progressTracker;
     this.focusInput = focusInput;
+    this.audioManager = audioManager;
   }
 
   async start(hiddenInput, lessonPickerEl) {
@@ -46,6 +47,13 @@ export class GameLifecycle {
 
     hiddenInput.value = '';
     this.focusInput();
+
+    // Initialize audio and start background music
+    if (this.audioManager) {
+      this.audioManager.init();
+      this.audioManager.startMusic();
+    }
+
     this.wordSpawner.spawn();
     this.gameLoop.start();
   }
@@ -54,6 +62,12 @@ export class GameLifecycle {
     this.state.running = false;
     this.gameLoop.stop();
     this.wordSpawner.clearAllWords();
+
+    // Stop background music
+    if (this.audioManager) {
+      this.audioManager.stopMusic();
+    }
+
     const unlockMsg = this.progressTracker.checkUnlock();
     this.overlayManager.showGameOver(unlockMsg);
     lessonPickerEl.disabled = false;

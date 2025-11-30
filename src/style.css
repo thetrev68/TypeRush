@@ -406,6 +406,75 @@ button:active {
   width: 0;
 }
 
+/* Settings UI */
+.settings-container {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.setting-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.95rem;
+}
+
+.setting-item input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+
+.setting-slider {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.9rem;
+}
+
+.setting-slider input[type="range"] {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  outline: none;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+
+.setting-slider span:last-child {
+  color: var(--accent);
+  font-weight: 600;
+  align-self: flex-end;
+}
+
+/* High score flash animation */
+@keyframes highscore-flash {
+  0%, 100% {
+    color: var(--text);
+    transform: scale(1);
+  }
+  50% {
+    color: var(--accent-2);
+    transform: scale(1.15);
+  }
+}
+
+.highscore-flash {
+  animation: highscore-flash 0.8s ease;
+}
+
 @media (min-width: 520px) {
   body {
     padding: 24px;

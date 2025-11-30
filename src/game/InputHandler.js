@@ -3,12 +3,14 @@ import { inferThumbFromChar } from '../utils/thumbDetection.js';
 import { getExpectedThumb } from '../utils/thumbDetection.js';
 
 export class InputHandler {
-  constructor(hiddenInput, state, scoreManager, hud, activeWordTracker) {
+  constructor(hiddenInput, state, scoreManager, hud, activeWordTracker, audioManager, hapticManager) {
     this.hiddenInput = hiddenInput;
     this.state = state;
     this.scoreManager = scoreManager;
     this.hud = hud;
     this.activeWordTracker = activeWordTracker;
+    this.audioManager = audioManager;
+    this.hapticManager = hapticManager;
     this.currentThumbSide = null;
   }
 
@@ -24,6 +26,12 @@ export class InputHandler {
 
       if (detectedThumb) {
         this.currentThumbSide = detectedThumb;
+      }
+
+      // Play tick sound and haptic pulse for each keypress
+      if (lastChar) {
+        this.audioManager.playTick();
+        this.hapticManager.pulse();
       }
 
       if (!val) return;
@@ -44,6 +52,8 @@ export class InputHandler {
           }
         } else {
           this.flashError(activeEntry.el);
+          this.audioManager.playError();
+          this.hapticManager.error();
           this.hiddenInput.value = '';
         }
       }
@@ -99,6 +109,8 @@ export class InputHandler {
 
       if (correct) {
         this.scoreManager.incrementCombo();
+        this.audioManager.playCorrect();
+        this.hapticManager.success();
         const flashClass = 'correct-thumb';
         const flashDuration = 420;
         activeEntry.el.classList.add(flashClass);
@@ -107,6 +119,8 @@ export class InputHandler {
       } else {
         breakCombo = true;
         this.scoreManager.breakCombo();
+        this.audioManager.playError();
+        this.hapticManager.error();
         const flashClass = 'wrong-thumb';
         const flashDuration = 480;
         activeEntry.el.classList.add(flashClass);
@@ -115,6 +129,8 @@ export class InputHandler {
       }
     } else {
       this.scoreManager.incrementCombo();
+      this.audioManager.playCorrect();
+      this.hapticManager.success();
       this.popWord(activeEntry, { breakCombo: false, awardScore: true });
     }
 

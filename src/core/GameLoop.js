@@ -1,12 +1,14 @@
 import { RAMP_MS } from '../config/constants.js';
 
 export class GameLoop {
-  constructor(state, wordSpawner, overlayManager, hud, activeWordTracker) {
+  constructor(state, wordSpawner, overlayManager, hud, activeWordTracker, audioManager, hapticManager) {
     this.state = state;
     this.wordSpawner = wordSpawner;
     this.overlayManager = overlayManager;
     this.hud = hud;
     this.activeWordTracker = activeWordTracker;
+    this.audioManager = audioManager;
+    this.hapticManager = hapticManager;
     this.rampTimer = null;
     this.positionTimer = null;
   }
@@ -33,6 +35,15 @@ export class GameLoop {
     this.state.level += 1;
     this.hud.update(this.state);
     this.wordSpawner.stopTimer();
+
+    // Play level up sound and haptic
+    if (this.audioManager) {
+      this.audioManager.playLevelUp();
+    }
+    if (this.hapticManager) {
+      this.hapticManager.celebrate();
+    }
+
     this.showLevelUpPause();
   }
 

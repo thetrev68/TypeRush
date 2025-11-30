@@ -90,21 +90,63 @@ TypeRush/
 │   ├── manifest.json          # PWA manifest
 │   └── service-worker.js      # Offline caching logic
 ├── src/
-│   ├── main.js                # Core game logic
+│   ├── config/                # Configuration & constants
+│   │   ├── constants.js       # Default data & game constants
+│   │   └── themes.js          # Theme definitions
+│   ├── core/                  # Core game architecture
+│   │   ├── GameLifecycle.js   # Game start/stop/reset logic
+│   │   ├── GameLoop.js        # Main game tick loop
+│   │   └── GameState.js       # Centralized state management
+│   ├── game/                  # Game mechanics
+│   │   ├── ActiveWordTracker.js  # Tracks current typing target
+│   │   ├── InputHandler.js    # Keyboard input processing
+│   │   ├── WordElement.js     # Word DOM element creation
+│   │   └── WordSpawner.js     # Word spawning & falling logic
+│   ├── scoring/               # Scoring & progression
+│   │   ├── MetricsCalculator.js  # WPM & accuracy calculation
+│   │   ├── ProgressTracker.js    # Lesson unlock tracking
+│   │   └── ScoreManager.js    # Score & combo management
+│   ├── ui/                    # User interface
+│   │   ├── HUD.js             # Heads-up display updates
+│   │   ├── LessonPicker.js    # Lesson selection UI
+│   │   ├── OverlayManager.js  # Start/pause/game-over screens
+│   │   └── ThemeManager.js    # Theme switching logic
+│   ├── utils/                 # Utilities
+│   │   ├── focus.js           # Keyboard focus management
+│   │   ├── positioning.js     # Word positioning calculations
+│   │   ├── rng.js             # Seeded random number generation
+│   │   ├── storage.js         # localStorage wrapper
+│   │   └── thumbDetection.js  # Left/right thumb detection
+│   ├── main.js                # Application entry point
 │   └── style.css              # All styles and themes
-├── index.html                 # Entry point
+├── index.html                 # HTML entry point
 ├── vite.config.js             # Build configuration
 └── package.json
 ```
 
-### Key Components
+### Architecture
 
-**Game Engine** ([src/main.js](src/main.js))
-- Word spawning and falling animation system
-- Input handling with mobile keyboard support
-- Thumb detection via touch events and character inference
-- Combo/scoring system with multipliers
-- WPM calculation based on rolling 10-word average
+**Modular Design**: TypeRush uses a clean, modular architecture with separation of concerns across distinct domains (core, game, scoring, UI, utilities). The codebase was recently refactored from a monolithic structure into this maintainable, extensible design that makes it easy to add features and test components independently.
+
+**Core Game Loop** ([src/core/GameLoop.js](src/core/GameLoop.js))
+- Manages requestAnimationFrame tick cycle
+- Updates falling word positions
+- Handles level progression and spawning
+
+**State Management** ([src/core/GameState.js](src/core/GameState.js))
+- Centralized game state (score, lives, speed, words)
+- Lesson configuration and word filtering
+- Clean state reset between games
+
+**Input Processing** ([src/game/InputHandler.js](src/game/InputHandler.js))
+- Keyboard input validation
+- Active word matching and completion
+- Integration with scoring system
+
+**Scoring System** ([src/scoring/](src/scoring/))
+- Real-time WPM calculation (rolling 10-word average)
+- Accuracy tracking with combo multipliers
+- Progress persistence via localStorage
 
 **Caching Strategy** ([public/service-worker.js](public/service-worker.js))
 - Static assets: Cache-first
@@ -181,7 +223,7 @@ npm run lint
 ## Configuration
 
 ### Adding Words
-Edit [public/data/words.json](public/data/words.json) - array of lowercase words
+Edit [public/data/words.json](public/data/words.json) - array of lowercase words. Fallback defaults are defined in [src/config/constants.js](src/config/constants.js).
 
 ### Adding Lessons
 Edit [public/data/lessons.json](public/data/lessons.json):
@@ -200,7 +242,7 @@ Edit [public/data/lessons.json](public/data/lessons.json):
 ```
 
 ### Adding Themes
-Edit theme objects in [src/main.js](src/main.js#L111-L156) and corresponding CSS in [src/style.css](src/style.css#L27-L56)
+Edit theme definitions in [src/config/themes.js](src/config/themes.js) and corresponding CSS in [src/style.css](src/style.css#L27-L56). The `ThemeManager` automatically renders available themes.
 
 ## Contributing
 
@@ -215,11 +257,14 @@ Contributions are welcome! Please:
 
 - [ ] Add unit tests (Vitest)
 - [ ] Generate PNG icons for better PWA support
-- [ ] Add accessibility improvements (ARIA live regions)
+- [ ] Add accessibility improvements (ARIA live regions, screen reader support)
+- [ ] Text-to-speech for active words (Web Speech API)
 - [ ] Implement privacy-friendly analytics
-- [ ] Add sound effects toggle
+- [ ] Add sound effects and haptic feedback toggles
 - [ ] Multiplayer mode
 - [ ] Custom word lists
+- [ ] Statistics dashboard with detailed typing analytics
+- [ ] Achievement system
 
 ## Credits
 

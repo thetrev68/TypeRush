@@ -1,11 +1,28 @@
 import { saveHighScore } from '../utils/storage.js';
 
 export class ScoreManager {
-  constructor(state) {
+  constructor(state, audioManager, hapticManager) {
     this.state = state;
+    this.audioManager = audioManager;
+    this.hapticManager = hapticManager;
   }
 
   celebrateHighScore() {
+    // Play high score chime and celebrate haptic
+    if (this.audioManager) {
+      this.audioManager.playHighScore();
+    }
+    if (this.hapticManager) {
+      this.hapticManager.celebrate();
+    }
+
+    // Flash the high score display
+    const bestVal = document.getElementById('bestVal');
+    if (bestVal) {
+      bestVal.classList.add('highscore-flash');
+      setTimeout(() => bestVal.classList.remove('highscore-flash'), 800);
+    }
+
     const container = document.createElement('div');
     container.className = 'confetti';
     const emojis = ['🎉', '👏', '⭐', '🔥', '🎊'];

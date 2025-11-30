@@ -2,10 +2,11 @@ import { MIN_SPAWN, BASE_SPAWN, MIN_FALL, BASE_FALL, leftLetters } from '../conf
 import { findSafeSpawnPosition } from '../utils/positioning.js';
 
 export class WordSpawner {
-  constructor(playfield, state, onMiss) {
+  constructor(playfield, state, onMiss, audioManager) {
     this.playfield = playfield;
     this.state = state;
     this.onMiss = onMiss;
+    this.audioManager = audioManager;
     this.spawnTimer = null;
   }
 
@@ -61,6 +62,11 @@ export class WordSpawner {
 
     const entry = { word: word.toLowerCase(), el, missHandler };
     this.state.falling.push(entry);
+
+    // Speak the word aloud
+    if (this.audioManager) {
+      this.audioManager.speakWord(word);
+    }
 
     return entry;
   }

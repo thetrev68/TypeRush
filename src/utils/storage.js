@@ -37,3 +37,33 @@ export const loadTheme = () => {
 export const saveTheme = (theme) => {
   localStorage.setItem('tr_theme', theme);
 };
+
+export const loadAudioSettings = () => {
+  const rawValue = localStorage.getItem('tr_audioSettings');
+
+  // Default settings
+  const defaults = {
+    sfxEnabled: true,
+    musicEnabled: true,
+    ttsEnabled: false,
+    hapticsEnabled: true,
+    masterVolume: 0.7,
+    musicVolume: 0.4
+  };
+
+  if (rawValue === null || rawValue === '') {
+    return defaults;
+  }
+
+  try {
+    return { ...defaults, ...JSON.parse(rawValue) };
+  } catch (error) {
+    console.error('Failed to parse audio settings from localStorage:', error, 'Raw value:', rawValue);
+    localStorage.removeItem('tr_audioSettings');
+    return defaults;
+  }
+};
+
+export const saveAudioSettings = (settings) => {
+  localStorage.setItem('tr_audioSettings', JSON.stringify(settings));
+};

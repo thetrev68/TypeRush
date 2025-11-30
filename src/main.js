@@ -5,6 +5,11 @@ import { defaultLessons, defaultWords } from './config/constants.js';
 
 // Utils
 import { setupFocusManagement } from './utils/focus.js';
+import { loadAudioSettings } from './utils/storage.js';
+
+// Audio & Haptics
+import { AudioManager } from './audio/AudioManager.js';
+import { HapticManager } from './haptics/HapticManager.js';
 
 // Core
 import { GameState } from './core/GameState.js';
@@ -26,6 +31,7 @@ import { HUD } from './ui/HUD.js';
 import { ThemeManager } from './ui/ThemeManager.js';
 import { LessonPicker } from './ui/LessonPicker.js';
 import { OverlayManager } from './ui/OverlayManager.js';
+import { SettingsManager } from './ui/SettingsManager.js';
 
 // DOM setup
 const root = document.querySelector('#app');
@@ -87,6 +93,7 @@ const template = `
             <select id="themePicker" class="lesson-select"></select>
             <div id="themeInfo" class="lesson-info"></div>
           </div>
+          <div id="settingsContainer" class="settings-container"></div>
           <button id="overlayRestart">Play</button>
         </div>
       </div>
@@ -112,6 +119,7 @@ const lessonPicker = document.getElementById('lessonPicker');
 const lessonInfo = document.getElementById('lessonInfo');
 const themePicker = document.getElementById('themePicker');
 const themeInfo = document.getElementById('themeInfo');
+const settingsContainer = document.getElementById('settingsContainer');
 const scoreVal = document.getElementById('scoreVal');
 const bestVal = document.getElementById('bestVal');
 const livesVal = document.getElementById('livesVal');
@@ -125,14 +133,20 @@ const gameState = new GameState();
 
 const { focusInput } = setupFocusManagement(hiddenInput);
 
+// Initialize audio/haptic systems
+const audioSettings = loadAudioSettings();
+const audioManager = new AudioManager(audioSettings);
+const hapticManager = new HapticManager(audioSettings);
+
 // Initialize managers
 const metricsCalc = new MetricsCalculator();
-const scoreManager = new ScoreManager(gameState);
+const scoreManager = new ScoreManager(gameState, audioManager, hapticManager);
 const progressTracker = new ProgressTracker(gameState, gameState.lessons);
 const hud = new HUD({ scoreVal, bestVal, livesVal, speedVal, wpmVal, accuracyVal, comboVal }, metricsCalc);
 const themeManager = new ThemeManager(themePicker, themeInfo);
 const lessonPickerManager = new LessonPicker(lessonPicker, lessonInfo, gameState);
 const overlayManager = new OverlayManager(overlay, overlayTitle, overlayMsg, overlayRestart);
+const settingsManager = new SettingsManager(settingsContainer, audioManager, hapticManager, audioSettings);
 
 // Setup word spawner
 const handleMiss = (el) => {
@@ -150,17 +164,17 @@ const handleMiss = (el) => {
   }
 };
 
-const wordSpawner = new WordSpawner(playfield, gameState, handleMiss);
+const wordSpawner = new WordSpawner(playfield, gameState, handleMiss, audioManager);
 const activeWordTracker = new ActiveWordTracker(playfield);
 
 // Setup game loop
-const gameLoop = new GameLoop(gameState, wordSpawner, overlayManager, hud, activeWordTracker);
+const gameLoop = new GameLoop(gameState, wordSpawner, overlayManager, hud, activeWordTracker, audioManager, hapticManager);
 
 // Setup lifecycle
-const gameLifecycle = new GameLifecycle(gameState, gameLoop, wordSpawner, hud, overlayManager, lessonPickerManager, progressTracker, focusInput);
+const gameLifecycle = new GameLifecycle(gameState, gameLoop, wordSpawner, hud, overlayManager, lessonPickerManager, progressTracker, focusInput, audioManager);
 
 // Setup input handler
-const inputHandler = new InputHandler(hiddenInput, gameState, scoreManager, hud, activeWordTracker);
+const inputHandler = new InputHandler(hiddenInput, gameState, scoreManager, hud, activeWordTracker, audioManager, hapticManager);
 
 const loadData = async () => {
   try {
@@ -176,6 +190,8 @@ const loadData = async () => {
   themeManager.renderPicker();
   themeManager.setupEventListeners();
   lessonPickerManager.setupEventListeners();
+  settingsManager.render();
+  settingsManager.setupEventListeners();
 };
 
 const updateHUD = () => {
