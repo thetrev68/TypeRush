@@ -96,6 +96,7 @@ const template = `
           </div>
           <div id="settingsContainer" class="settings-container"></div>
           <button id="overlayRestart">Play</button>
+          <button id="overlayEndGame" class="hidden secondary-btn">End Game</button>
         </div>
       </div>
     </section>
@@ -116,6 +117,7 @@ const overlay = document.getElementById('overlay');
 const overlayTitle = document.getElementById('overlayTitle');
 const overlayMsg = document.getElementById('overlayMsg');
 const overlayRestart = document.getElementById('overlayRestart');
+const overlayEndGame = document.getElementById('overlayEndGame');
 const lessonPicker = document.getElementById('lessonPicker');
 const lessonInfo = document.getElementById('lessonInfo');
 const themePicker = document.getElementById('themePicker');
@@ -206,13 +208,16 @@ inputHandler.setupListener();
 overlayManager.setupRestartButton(async () => {
   if (!gameState.running) {
     // Starting fresh game
+    overlayEndGame.classList.add('hidden');
     await gameLifecycle.start(hiddenInput, lessonPicker);
     pauseBtn.classList.remove('hidden');
   } else if (gameState.paused) {
     // Resuming from user pause
+    overlayEndGame.classList.add('hidden');
     gameLifecycle.resume();
   } else {
     // Resuming from level up pause
+    overlayEndGame.classList.add('hidden');
     overlayManager.hide();
     overlayRestart.textContent = 'Play';
     gameState.running = true;
@@ -235,7 +240,15 @@ overlayManager.setupRestartButton(async () => {
 pauseBtn.addEventListener('click', () => {
   if (gameState.running && !gameState.paused) {
     gameLifecycle.pause();
+    overlayEndGame.classList.remove('hidden');
   }
+});
+
+// Setup end game button
+overlayEndGame.addEventListener('click', () => {
+  pauseBtn.classList.add('hidden');
+  overlayEndGame.classList.add('hidden');
+  gameLifecycle.end('Player ended game', lessonPicker);
 });
 
 // PWA badges

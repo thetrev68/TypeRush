@@ -1,5 +1,6 @@
 import { MIN_SPAWN, BASE_SPAWN, MIN_FALL, BASE_FALL, leftLetters } from '../config/constants.js';
 import { findSafeSpawnPosition } from '../utils/positioning.js';
+import { WordElement } from './WordElement.js';
 
 export class WordSpawner {
   constructor(playfield, state, onMiss, audioManager) {
@@ -18,6 +19,20 @@ export class WordSpawner {
     return Math.max(MIN_FALL, BASE_FALL - (this.state.level - 1) * 900);
   }
 
+  selectWordByLevel(wordPool) {
+    // Calculate max word length based on level
+    // Level 1-2: 3-4 chars, Level 3-4: 5-6 chars, Level 5+: any length
+    const maxLength = Math.min(10, 2 + this.state.level);
+
+    // Filter words by level-appropriate length
+    const suitableWords = wordPool.filter(w => w.length <= maxLength);
+
+    // If no suitable words, fall back to full pool
+    const pool = suitableWords.length > 0 ? suitableWords : wordPool;
+
+    return pool[Math.floor(this.state.rng() * pool.length)];
+  }
+
   spawn() {
     if (!this.state.running || !this.state.activeWords.length) return null;
     if (this.state.falling.length >= 3) return null;
@@ -28,21 +43,18 @@ export class WordSpawner {
       const targetThumb = this.state.nextThumb || 'left';
       const pool = targetThumb === 'left' ? this.state.leftWords : this.state.rightWords;
       if (pool && pool.length) {
-        word = pool[Math.floor(this.state.rng() * pool.length)];
+        word = this.selectWordByLevel(pool);
         this.state.nextThumb = targetThumb === 'left' ? 'right' : 'left';
       } else {
-        word = this.state.activeWords[Math.floor(this.state.rng() * this.state.activeWords.length)];
+        word = this.selectWordByLevel(this.state.activeWords);
       }
     } else {
-      word = this.state.activeWords[Math.floor(this.state.rng() * this.state.activeWords.length)];
+      word = this.selectWordByLevel(this.state.activeWords);
     }
 
-    const el = document.createElement('div');
-    el.className = 'word';
-    el.textContent = word;
-    el.dataset.originalWord = word;
-    el.dataset.removed = '0';
-    el.dataset.typedProgress = '';
+    // Create WordElement instance
+    const wordElement = new WordElement(word, this.onMiss);
+    const el = wordElement.el;
 
     // Add thumb indicator to first letter
     const firstLetter = word[0];
@@ -53,15 +65,17 @@ export class WordSpawner {
     // Find safe position with spacing
     const estimatedWidth = word.length * 12 + 28;
     const left = findSafeSpawnPosition(estimatedWidth, this.state.falling, this.playfield, this.state.rng);
-    el.style.left = `${left}px`;
-    el.style.setProperty('--fall-duration', `${this.fallDuration()}ms`);
+    wordElement.setPosition(left, this.fallDuration());
 
-    const missHandler = () => this.onMiss(el);
-    el.addEventListener('animationend', missHandler);
     this.playfield.appendChild(el);
 
-    const entry = { word: word.toLowerCase(), el, missHandler };
+    const entry = { word: word.toLowerCase(), el, wordElement };
     this.state.falling.push(entry);
+
+    // Mark first word as active immediately
+    if (this.state.falling.length === 1) {
+      el.classList.add('active-word');
+    }
 
     // Speak the word aloud
     if (this.audioManager) {

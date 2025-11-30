@@ -20,50 +20,51 @@ export class WordElement {
     el.dataset.removed = '0';
     el.dataset.typedProgress = '';
 
-    const firstLetter = this.word[0] ?? '';
-    const isLeft = leftLetters.has(firstLetter.toLowerCase());
-    const firstLetterClass = isLeft ? 'first-letter-left' : 'first-letter-right';
-
-    const span = document.createElement('span');
-    span.className = firstLetterClass;
-    span.textContent = firstLetter;
-
-    el.appendChild(span);
-    el.appendChild(document.createTextNode(this.word.substring(1)));
+    // Color each letter based on which thumb types it
+    for (const char of this.word) {
+      const span = document.createElement('span');
+      const isLeft = leftLetters.has(char.toLowerCase());
+      span.className = isLeft ? 'thumb-left' : 'thumb-right';
+      span.textContent = char;
+      el.appendChild(span);
+    }
 
     return el;
   }
 
   highlightProgress(progress) {
-    const word = this.el.dataset.originalWord || this.el.textContent;
-    this.el.dataset.originalWord = word;
+    const word = this.el.dataset.originalWord;
 
     if (progress.length === 0) {
-      // Re-render base word safely
+      // Re-render base word with each letter colored
       this.el.textContent = '';
-      const firstLetter = word[0] ?? '';
-      const isLeft = leftLetters.has(firstLetter.toLowerCase());
-      const firstLetterClass = isLeft ? 'first-letter-left' : 'first-letter-right';
-      const span = document.createElement('span');
-      span.className = firstLetterClass;
-      span.textContent = firstLetter;
-      this.el.appendChild(span);
-      this.el.appendChild(document.createTextNode(word.substring(1)));
+      for (const char of word) {
+        const span = document.createElement('span');
+        const isLeft = leftLetters.has(char.toLowerCase());
+        span.className = isLeft ? 'thumb-left' : 'thumb-right';
+        span.textContent = char;
+        this.el.appendChild(span);
+      }
       return;
     }
 
-    const typed = word.substring(0, progress.length);
-    const remaining = word.substring(progress.length);
-    const firstLetter = word[0] ?? '';
-    const isLeft = leftLetters.has(firstLetter.toLowerCase());
-    const firstLetterClass = isLeft ? 'first-letter-left' : 'first-letter-right';
-
+    // Render with typed progress highlighted
     this.el.textContent = '';
-    const span = document.createElement('span');
-    span.className = progress.length === 1 ? `typed ${firstLetterClass}` : 'typed';
-    span.textContent = typed;
-    this.el.appendChild(span);
-    this.el.appendChild(document.createTextNode(remaining));
+    for (let i = 0; i < word.length; i++) {
+      const char = word[i];
+      const span = document.createElement('span');
+      const isLeft = leftLetters.has(char.toLowerCase());
+      const thumbClass = isLeft ? 'thumb-left' : 'thumb-right';
+
+      if (i < progress.length) {
+        span.className = `typed ${thumbClass}`;
+      } else {
+        span.className = thumbClass;
+      }
+
+      span.textContent = char;
+      this.el.appendChild(span);
+    }
   }
 
   setActive(isActive) {

@@ -128,6 +128,8 @@ export class InputHandler {
         setTimeout(() => this.popWord(activeEntry, { breakCombo, awardScore: true }), flashDuration);
       }
     } else {
+      // Track as correct even when thumb is unknown (assume user typed correctly)
+      this.scoreManager.trackThumbAccuracy(true);
       this.scoreManager.incrementCombo();
       this.audioManager.playCorrect();
       this.hapticManager.success();

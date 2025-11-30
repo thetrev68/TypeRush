@@ -51,12 +51,15 @@ export class GameLoop {
     this.state.running = false;
     this.stop();
 
-    // Pause all falling words during level up
+    // Remove all falling words during level up
     this.state.falling.forEach(wordObj => {
-      if (wordObj.pause) {
-        wordObj.pause();
+      if (wordObj.wordElement && wordObj.wordElement.remove) {
+        wordObj.wordElement.remove();
+      } else if (wordObj.el) {
+        wordObj.el.remove();
       }
     });
+    this.state.falling = [];
 
     this.overlayManager.showLevelUpPause(this.state.level);
   }

@@ -90,8 +90,8 @@ export class GameLifecycle {
 
     // Pause all falling words
     this.state.falling.forEach(wordObj => {
-      if (wordObj.pause) {
-        wordObj.pause();
+      if (wordObj.wordElement && wordObj.wordElement.pause) {
+        wordObj.wordElement.pause();
       }
     });
 
@@ -119,8 +119,8 @@ export class GameLifecycle {
 
     // Resume all falling words
     this.state.falling.forEach(wordObj => {
-      if (wordObj.resume) {
-        wordObj.resume();
+      if (wordObj.wordElement && wordObj.wordElement.resume) {
+        wordObj.wordElement.resume();
       }
     });
 

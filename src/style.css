@@ -225,14 +225,12 @@ body.theme-racing .word {
   animation: wrong-flash 320ms ease;
 }
 
-.word .first-letter-left {
-  color: #16c784; /* Green for left hand */
-  font-weight: bold;
+.word .thumb-left {
+  color: #16c784; /* Green for left thumb */
 }
 
-.word .first-letter-right {
-  color: #f59e0b; /* Orange for right hand */
-  font-weight: bold;
+.word .thumb-right {
+  color: #f59e0b; /* Orange for right thumb */
 }
 
 .word.active-word {
@@ -391,6 +389,21 @@ button:active {
   filter: brightness(0.98);
 }
 
+button.secondary-btn {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  margin-top: 8px;
+}
+
+button.secondary-btn:active {
+  filter: brightness(0.9);
+}
+
+button.hidden {
+  display: none;
+}
+
 .pause-btn {
   position: absolute;
   top: 8px;
@@ -419,6 +432,7 @@ button:active {
 
 .tip {
   margin: 12px 0 0;
+  padding-bottom: 20px;
   color: var(--muted);
   font-size: 0.9rem;
   text-align: center;

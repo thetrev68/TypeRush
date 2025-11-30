@@ -4,21 +4,21 @@ export const saveProgress = (unlockedLessons) => {
 
 export const loadUnlockedLessons = () => {
   const rawValue = localStorage.getItem('tr_unlocked');
-  
-  // Return default if no value or empty
+
+  // Return default if no value or empty - first 3 levels unlocked
   if (rawValue === null || rawValue === '') {
-    return [0];
+    return [0, 1, 2];
   }
-  
+
   try {
     return JSON.parse(rawValue);
   } catch (error) {
     // Log the parsing error with context
     console.error('Failed to parse unlocked lessons from localStorage:', error, 'Raw value:', rawValue);
-    
+
     // Remove corrupted data and reset to safe default
     localStorage.removeItem('tr_unlocked');
-    return [0];
+    return [0, 1, 2];
   }
 };
 
