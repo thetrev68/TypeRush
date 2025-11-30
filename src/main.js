@@ -10,8 +10,8 @@ const template = `
         <p>Two-thumb typing trainer</p>
       </div>
       <div class="badges">
-        <span class="pill">PWA</span>
-        <span class="pill">Offline</span>
+        <span class="pill" id="pwaBadge">PWA</span>
+        <span class="pill" id="offlineBadge">Offline</span>
       </div>
     </header>
 
@@ -50,7 +50,7 @@ const template = `
       <div class="overlay hidden" id="overlay">
         <div class="overlay-card">
           <h2 id="overlayTitle">Ready?</h2>
-          <p id="overlayMsg">Tap start to play.</p>
+          <p id="overlayMsg">Tap Play to start.</p>
           <div class="lesson-control">
             <select id="lessonPicker" class="lesson-select"></select>
             <div id="lessonInfo" class="lesson-info"></div>
@@ -64,12 +64,6 @@ const template = `
       </div>
     </section>
 
-    <section class="controls">
-      <button id="startBtn">Start</button>
-      <button id="restartBtn" class="ghost" disabled>Restart</button>
-      <button id="dailyBtn" class="ghost" aria-pressed="false">Daily Off</button>
-    </section>
-
     <p class="tip">Tap anywhere to keep the keyboard focused.</p>
     <input id="hiddenInput" autocomplete="off" autocorrect="off" spellcheck="false" />
   </main>
@@ -78,10 +72,9 @@ const template = `
 root.innerHTML = template;
 
 const hiddenInput = document.querySelector('#hiddenInput');
-const startBtn = document.getElementById('startBtn');
-const restartBtn = document.getElementById('restartBtn');
-const dailyBtn = document.getElementById('dailyBtn');
 const playfield = document.getElementById('playfield');
+const pwaBadge = document.getElementById('pwaBadge');
+const offlineBadge = document.getElementById('offlineBadge');
 const overlay = document.getElementById('overlay');
 const overlayTitle = document.getElementById('overlayTitle');
 const overlayMsg = document.getElementById('overlayMsg');
@@ -771,22 +764,14 @@ hiddenInput.addEventListener('input', () => {
   }
 });
 
-startBtn.addEventListener('click', () => {
+overlayRestart.addEventListener('click', async () => {
   if (!state.running) {
-    startGame();
-  }
-});
-
-restartBtn.addEventListener('click', () => {
-  resetGame();
-  startGame();
-});
-
-overlayRestart.addEventListener('click', () => {
-  overlay.classList.add('hidden');
-  overlayRestart.textContent = 'Play';
-
-  if (!state.running) {
+    // Starting fresh game
+    await startGame();
+  } else {
+    // Resuming from pause (level up)
+    overlay.classList.add('hidden');
+    overlayRestart.textContent = 'Play';
     state.running = true;
     spawnWord();
     restartSpawnTimer();
@@ -794,17 +779,34 @@ overlayRestart.addEventListener('click', () => {
     state.positionTimer = setInterval(updateWordPositions, 100);
     hiddenInput.value = '';
     focusInput();
-    startBtn.disabled = true;
-    restartBtn.disabled = false;
   }
 });
 
-dailyBtn.addEventListener('click', () => {
-  state.dailyMode = !state.dailyMode;
-  dailyBtn.setAttribute('aria-pressed', state.dailyMode.toString());
-  dailyBtn.textContent = state.dailyMode ? 'Daily On' : 'Daily Off';
-  setRng();
-});
+// PWA and Offline detection
+const updateBadges = () => {
+  // Check if running as installed PWA
+  const isPWA = window.matchMedia('(display-mode: standalone)').matches ||
+                window.navigator.standalone === true;
+
+  if (isPWA) {
+    pwaBadge.classList.add('active');
+  } else {
+    pwaBadge.classList.remove('active');
+  }
+
+  // Check if offline
+  const isOffline = !navigator.onLine;
+  if (isOffline) {
+    offlineBadge.classList.add('active');
+  } else {
+    offlineBadge.classList.remove('active');
+  }
+};
+
+// Update badges on load and when online/offline changes
+updateBadges();
+window.addEventListener('online', updateBadges);
+window.addEventListener('offline', updateBadges);
 
 setRng();
 loadData().then(() => {
